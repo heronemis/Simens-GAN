@@ -12,7 +12,7 @@ from utils import *
 
 
 def conv_out_size_same(size, stride):
-    return math.ceil(float(size) / float(stride))
+    return int(math.ceil(float(size) / float(stride)))
 
 
 class DCGAN(object):
@@ -23,17 +23,17 @@ class DCGAN(object):
                  input_fname_pattern='*.jpg', checkpoint_dir=None, sample_dir=None):
         """
 
-    Args:
-      sess: TensorFlow session
-      batch_size: The size of batch. Should be specified before training.
-      y_dim: (optional) Dimension of dim for y. [None]
-      z_dim: (optional) Dimension of dim for Z. [100]
-      gf_dim: (optional) Dimension of gen filters in first conv layer. [64]
-      df_dim: (optional) Dimension of discrim filters in first conv layer. [64]
-      gfc_dim: (optional) Dimension of gen units for for fully connected layer. [1024]
-      dfc_dim: (optional) Dimension of discrim units for fully connected layer. [1024]
-      c_dim: (optional) Dimension of image color. For grayscale input, set to 1. [3]
-    """
+        Args:
+          sess: TensorFlow session
+          batch_size: The size of batch. Should be specified before training.
+          y_dim: (optional) Dimension of dim for y. [None]
+          z_dim: (optional) Dimension of dim for Z. [100]
+          gf_dim: (optional) Dimension of gen filters in first conv layer. [64]
+          df_dim: (optional) Dimension of discrim filters in first conv layer. [64]
+          gfc_dim: (optional) Dimension of gen units for for fully connected layer. [1024]
+          dfc_dim: (optional) Dimension of discrim units for fully connected layer. [1024]
+          c_dim: (optional) Dimension of image color. For grayscale input, set to 1. [3]
+        """
         self.sess = sess
         self.is_crop = is_crop
         self.is_grayscale = (c_dim == 1)
@@ -93,6 +93,8 @@ class DCGAN(object):
         inputs = self.inputs
         sample_inputs = self.sample_inputs
 
+
+
         self.z = tf.placeholder(
             tf.float32, [None, self.z_dim], name='z')
         self.z_sum = histogram_summary("z", self.z)
@@ -105,6 +107,8 @@ class DCGAN(object):
             self.sampler = self.sampler(self.z, self.y)
             self.D_, self.D_logits_ = \
                 self.discriminator(self.G, self.y, reuse=True)
+
+            self.discriminatorOutput = self.discriminator(inputs, self.y, reuse=True)
         else:
             self.G = self.generator(self.z)
             self.D, self.D_logits = self.discriminator(inputs)
@@ -116,15 +120,18 @@ class DCGAN(object):
         self.d__sum = histogram_summary("d_", self.D_)
         self.G_sum = image_summary("G", self.G)
 
+        def sigmoid_cross_entropy_with_logits(x, y):
+            try:
+                return tf.nn.sigmoid_cross_entropy_with_logits(logits=x, labels=y)
+            except:
+                return tf.nn.sigmoid_cross_entropy_with_logits(logits=x, targets=y)
+
         self.d_loss_real = tf.reduce_mean(
-            tf.nn.sigmoid_cross_entropy_with_logits(
-                logits=self.D_logits, labels=tf.ones_like(self.D)))
+            sigmoid_cross_entropy_with_logits(self.D_logits, tf.ones_like(self.D)))
         self.d_loss_fake = tf.reduce_mean(
-            tf.nn.sigmoid_cross_entropy_with_logits(
-                logits=self.D_logits_, labels=tf.zeros_like(self.D_)))
+            sigmoid_cross_entropy_with_logits(self.D_logits_, tf.zeros_like(self.D_)))
         self.g_loss = tf.reduce_mean(
-            tf.nn.sigmoid_cross_entropy_with_logits(
-                logits=self.D_logits_, labels=tf.ones_like(self.D_)))
+            sigmoid_cross_entropy_with_logits(self.D_logits_, tf.ones_like(self.D_)))
 
         self.d_loss_real_sum = scalar_summary("d_loss_real", self.d_loss_real)
         self.d_loss_fake_sum = scalar_summary("d_loss_fake", self.d_loss_fake)
@@ -187,10 +194,10 @@ class DCGAN(object):
         counter = 1
         start_time = time.time()
 
-        if self.load(self.checkpoint_dir):
-            print(" [*] Load SUCCESS")
-        else:
-            print(" [!] Load failed...")
+        # if self.load(self.checkpoint_dir):
+        #     print(" [*] Load SUCCESS")
+        # else:
+        #     print(" [!] Load failed...")
 
         for epoch in xrange(config.epoch):
             if config.dataset == 'mnist':
@@ -282,7 +289,7 @@ class DCGAN(object):
                       % (epoch, idx, batch_idxs,
                          time.time() - start_time, errD_fake + errD_real, errG))
 
-                if np.mod(counter, 100) == 1:
+                if np.mod(counter, 2) == 1 or True:
                     if config.dataset == 'mnist':
                         samples, d_loss, g_loss = self.sess.run(
                             [self.sampler, self.d_loss, self.g_loss],
@@ -292,9 +299,26 @@ class DCGAN(object):
                                 self.y: sample_labels,
                             }
                         )
+                        rho = np.zeros((64, 28, 28, 1))
+                        batchOutput = self.sess.run([self.discriminatorOutput],
+                                                    feed_dict={self.inputs: rho,self.y: sample_labels})
+                        # # rho[0] = samples[0]
+                        # scoreTest, d_loss, g_loss = self.sess.run(
+                        #     [self.discriminator, self.d_loss, self.g_loss],
+                        #     feed_dict={
+                        #         self.inputs : rho,#samples[0],
+                        #         self.y: sample_labels,
+                        #     }
+                        # )
+                        print("Scores: ",batchOutput)
+
+
+
+
                         save_images(samples, [8, 8],
                                     './{}/train_{:02d}_{:04d}.png'.format(config.sample_dir, epoch, idx))
                         print("[Sample] d_loss: %.8f, g_loss: %.8f" % (d_loss, g_loss))
+                        # return
                     else:
                         try:
                             samples, d_loss, g_loss = self.sess.run(
