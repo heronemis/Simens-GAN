@@ -79,6 +79,8 @@ class DCGAN(object):
     def build_model(self):
         if self.y_dim:
             self.y = tf.placeholder(tf.float32, [self.batch_size, self.y_dim], name='y')
+            self.y_eval = tf.placeholder(tf.float32, [10000, self.y_dim], name='y_eval')
+            self.y_eval2 = tf.placeholder(tf.float32, [20000, self.y_dim], name='y_eval2')
 
         if self.is_crop:
             image_dims = [self.output_height, self.output_width, self.c_dim]
@@ -89,6 +91,9 @@ class DCGAN(object):
             tf.float32, [self.batch_size] + image_dims, name='real_images')
         self.sample_inputs = tf.placeholder(
             tf.float32, [self.sample_num] + image_dims, name='sample_inputs')
+
+
+        self.eval_input = tf.placeholder(tf.float32, [10000] + image_dims, name='eval_input')
 
         inputs = self.inputs
         sample_inputs = self.sample_inputs
@@ -104,11 +109,14 @@ class DCGAN(object):
             self.D, self.D_logits = \
                 self.discriminator(inputs, self.y, reuse=False)
 
+            self.evaulator = self.evaluators(self.z, self.y_eval)
             self.sampler = self.sampler(self.z, self.y)
+
             self.D_, self.D_logits_ = \
                 self.discriminator(self.G, self.y, reuse=True)
 
             self.discriminatorOutput = self.discriminator(inputs, self.y, reuse=True)
+            self.discriminatorEval = self.discriminator(self.eval_input, self.y_eval, reuse=True,tempBatchSize=10000)
         else:
             self.G = self.generator(self.z)
             self.D, self.D_logits = self.discriminator(inputs)
@@ -133,6 +141,16 @@ class DCGAN(object):
         self.g_loss = tf.reduce_mean(
             sigmoid_cross_entropy_with_logits(self.D_logits_, tf.ones_like(self.D_)))
 
+
+
+
+        # self.d_loss_real = tf.reduce_mean(
+        #     sigmoid_cross_entropy_with_logits(self.D_logits, tf.zeros_like(self.D)))
+        # self.d_loss_fake = tf.reduce_mean(
+        #     sigmoid_cross_entropy_with_logits(self.D_logits_, tf.ones_like(self.D_)))
+        # self.g_loss = tf.reduce_mean(
+        #     sigmoid_cross_entropy_with_logits(self.D_logits_, tf.zeros_like(self.D_)))
+
         self.d_loss_real_sum = scalar_summary("d_loss_real", self.d_loss_real)
         self.d_loss_fake_sum = scalar_summary("d_loss_fake", self.d_loss_fake)
 
@@ -151,7 +169,8 @@ class DCGAN(object):
     def train(self, config):
         """Train DCGAN"""
         if config.dataset == 'mnist':
-            data_X, data_y = self.load_mnist()
+            # data_X, data_y = self.load_mnist()
+            data_X, data_y, testing_x, testing_y  = self.load_mnist_with_test()
         else:
             data = glob(os.path.join("./data", config.dataset, self.input_fname_pattern))
         # np.random.shuffle(data)
@@ -172,6 +191,11 @@ class DCGAN(object):
         self.writer = SummaryWriter("./logs", self.sess.graph)
 
         sample_z = np.random.uniform(-1, 1, size=(self.sample_num, self.z_dim))
+
+
+
+        lastFakeAccuracy = 0
+        lastRealAccuracy = 0
 
         if config.dataset == 'mnist':
             sample_inputs = data_X[0:self.sample_num]
@@ -226,8 +250,8 @@ class DCGAN(object):
                     else:
                         batch_images = np.array(batch).astype(np.float32)
 
-                batch_z = np.random.uniform(-1, 1, [config.batch_size, self.z_dim]) \
-                    .astype(np.float32)
+                batch_z = np.random.uniform(-1, 1, [config.batch_size, self.z_dim]).astype(np.float32)
+                eval_z = np.random.uniform(-1, 1, [10000, self.z_dim]).astype(np.float32)
 
                 if config.dataset == 'mnist':
                     # Update D network
@@ -289,7 +313,7 @@ class DCGAN(object):
                       % (epoch, idx, batch_idxs,
                          time.time() - start_time, errD_fake + errD_real, errG))
 
-                if np.mod(counter, 2) == 1 or True:
+                if np.mod(counter, 30) == 1 or True:
                     if config.dataset == 'mnist':
                         samples, d_loss, g_loss = self.sess.run(
                             [self.sampler, self.d_loss, self.g_loss],
@@ -299,9 +323,101 @@ class DCGAN(object):
                                 self.y: sample_labels,
                             }
                         )
+
+                        print("Creating eval data")
+                        samples_eval = self.sess.run(
+                            [self.evaulator],
+                            feed_dict={
+                                self.z : eval_z,
+                                # self.eval_input : testing_x,
+                                self.y_eval: testing_y,
+                            }
+                        )
+
+                        samples_eval = np.asarray(samples_eval[0])
+                        print("Done. Size: ", len(samples_eval))
+                        print("Done. Size[0]: ", len(samples_eval[0]))
+                        print("Done. Size[0][0]: ", len(samples_eval[0][0]))
+
+
+                        labelsReal = [1] * 10000
+                        labelsFake = [0] * 10000
+
+                        labels = np.asarray(labelsReal + labelsFake)
+
+
+                        print("testing_x.shape",testing_x.shape)
+                        print("testing_x.shape",samples_eval.shape)
+
+                        # X = np.concatenate((testing_x,samples_eval ), axis=0)
+                        # yLAbels = np.concatenate((testing_y, testing_y), axis=0).astype(np.int)
+                        #
+                        # seed = 547
+                        # np.random.seed(seed)
+                        # np.random.shuffle(X)
+                        # np.random.seed(seed)
+                        # np.random.shuffle(yLAbels)
+                        # np.random.seed(seed)
+                        # np.random.shuffle(labels)
+
+                        print(labels)
+
+
+
                         rho = np.zeros((64, 28, 28, 1))
+
+                        for i in range(0,32):
+                            samples[i*2] = batch_images[i*2]
+                            # samples[i*2] = batch_images[i]
                         batchOutput = self.sess.run([self.discriminatorOutput],
-                                                    feed_dict={self.inputs: rho,self.y: sample_labels})
+                                                    feed_dict={self.inputs: samples,self.y: batch_labels})
+
+
+                        evalDiscOuput = self.sess.run([self.discriminatorEval],
+                                                    feed_dict={self.eval_input: samples_eval,self.y_eval: testing_y})
+
+
+                        correct = 0
+                        for res in range(0,10000):
+                            # print("Real ", evalDiscOuput[0][0][res],' - ', 1.0)
+                            if(evalDiscOuput[0][0][res] > 0.5):
+                                correct += 1
+                                # print("     - correct!")
+                        percentage =  ((float(correct) / float(10000))*100)
+
+                        deri = ""
+                        if(percentage > lastRealAccuracy):
+                            deri = "+"
+                        elif(percentage < lastRealAccuracy):
+                            deri = "-"
+
+                        print("Correct (Real): ",deri, percentage,"% (",correct,")")
+
+                        lastRealAccuracy = percentage
+
+
+                        evalDiscOuput = self.sess.run([self.discriminatorEval],
+                                                    feed_dict={self.eval_input: testing_x,self.y_eval: testing_y})
+
+                        correct = 0
+                        for res in range(0,10000):
+                            # print("Real ", evalDiscOuput[0][0][res],' - ', 1.0)
+                            if(evalDiscOuput[0][0][res] < 0.5):
+                                correct += 1
+                                # print("     - correct!")
+
+                        percentage = ((float(correct) / float(10000)) * 100)
+
+                        deri = ""
+                        if(percentage > lastRealAccuracy):
+                            deri = "+"
+                        elif(percentage < lastRealAccuracy):
+                            deri = "-"
+
+                        print("Correct (Fake): ",deri, percentage,"% (",correct,")")
+
+                        lastFakeAccuracy = percentage
+
                         # # rho[0] = samples[0]
                         # scoreTest, d_loss, g_loss = self.sess.run(
                         #     [self.discriminator, self.d_loss, self.g_loss],
@@ -310,13 +426,23 @@ class DCGAN(object):
                         #         self.y: sample_labels,
                         #     }
                         # )
-                        print("Scores: ",batchOutput)
+                        # print("Scores: ",batchOutput[0][0])
+                        print("batch_labels: ",np.argmax(batch_labels))
+                        print(" - ")
+                        # print("Scores: ", len(batchOutput))
+                        # print(" - ")
+
+
+                        # batchSamples = []
+                        # for i in range(0, 64):
+                        #     batchSamples.append( np.argmax(batch_labels[i]) )
+
 
 
 
 
                         save_images(samples, [8, 8],
-                                    './{}/train_{:02d}_{:04d}.png'.format(config.sample_dir, epoch, idx))
+                                    './{}/train_{:02d}_{:04d}.png'.format(config.sample_dir, epoch, idx),batchOutput[0][0])
                         print("[Sample] d_loss: %.8f, g_loss: %.8f" % (d_loss, g_loss))
                         # return
                     else:
@@ -337,28 +463,31 @@ class DCGAN(object):
                 if np.mod(counter, 500) == 2:
                     self.save(config.checkpoint_dir, counter)
 
-    def discriminator(self, image, y=None, reuse=False):
+    def discriminator(self, image, y=None, reuse=False,tempBatchSize=None):
         with tf.variable_scope("discriminator") as scope:
             if reuse:
                 scope.reuse_variables()
+
+            if tempBatchSize == None:
+                tempBatchSize = self.batch_size
 
             if not self.y_dim:
                 h0 = lrelu(conv2d(image, self.df_dim, name='d_h0_conv'))
                 h1 = lrelu(self.d_bn1(conv2d(h0, self.df_dim * 2, name='d_h1_conv')))
                 h2 = lrelu(self.d_bn2(conv2d(h1, self.df_dim * 4, name='d_h2_conv')))
                 h3 = lrelu(self.d_bn3(conv2d(h2, self.df_dim * 8, name='d_h3_conv')))
-                h4 = linear(tf.reshape(h3, [self.batch_size, -1]), 1, 'd_h3_lin')
+                h4 = linear(tf.reshape(h3, [tempBatchSize, -1]), 1, 'd_h3_lin')
 
                 return tf.nn.sigmoid(h4), h4
             else:
-                yb = tf.reshape(y, [self.batch_size, 1, 1, self.y_dim])
+                yb = tf.reshape(y, [tempBatchSize, 1, 1, self.y_dim])
                 x = conv_cond_concat(image, yb)
 
                 h0 = lrelu(conv2d(x, self.c_dim + self.y_dim, name='d_h0_conv'))
                 h0 = conv_cond_concat(h0, yb)
 
                 h1 = lrelu(self.d_bn1(conv2d(h0, self.df_dim + self.y_dim, name='d_h1_conv')))
-                h1 = tf.reshape(h1, [self.batch_size, -1])
+                h1 = tf.reshape(h1, [tempBatchSize, -1])
                 h1 = concat([h1, y], 1)
 
                 h2 = lrelu(self.d_bn2(linear(h1, self.dfc_dim, 'd_h2_lin')))
@@ -479,6 +608,59 @@ class DCGAN(object):
 
                 return tf.nn.sigmoid(deconv2d(h2, [self.batch_size, s_h, s_w, self.c_dim], name='g_h3'))
 
+
+    def evaluators(self, z, y_eval=None):
+        with tf.variable_scope("generator") as scope:
+            scope.reuse_variables()
+
+            if not self.y_dim:
+                s_h, s_w = self.output_height, self.output_width
+                s_h2, s_w2 = conv_out_size_same(s_h, 2), conv_out_size_same(s_w, 2)
+                s_h4, s_w4 = conv_out_size_same(s_h2, 2), conv_out_size_same(s_w2, 2)
+                s_h8, s_w8 = conv_out_size_same(s_h4, 2), conv_out_size_same(s_w4, 2)
+                s_h16, s_w16 = conv_out_size_same(s_h8, 2), conv_out_size_same(s_w8, 2)
+
+                # project `z` and reshape
+                h0 = tf.reshape(
+                    linear(z, self.gf_dim * 8 * s_h16 * s_w16, 'g_h0_lin'),
+                    [-1, s_h16, s_w16, self.gf_dim * 8])
+                h0 = tf.nn.relu(self.g_bn0(h0, train=False))
+
+                h1 = deconv2d(h0, [self.batch_size, s_h8, s_w8, self.gf_dim * 4], name='g_h1')
+                h1 = tf.nn.relu(self.g_bn1(h1, train=False))
+
+                h2 = deconv2d(h1, [self.batch_size, s_h4, s_w4, self.gf_dim * 2], name='g_h2')
+                h2 = tf.nn.relu(self.g_bn2(h2, train=False))
+
+                h3 = deconv2d(h2, [self.batch_size, s_h2, s_w2, self.gf_dim * 1], name='g_h3')
+                h3 = tf.nn.relu(self.g_bn3(h3, train=False))
+
+                h4 = deconv2d(h3, [self.batch_size, s_h, s_w, self.c_dim], name='g_h4')
+
+                return tf.nn.tanh(h4)
+            else:
+                s_h, s_w = self.output_height, self.output_width
+                s_h2, s_h4 = int(s_h / 2), int(s_h / 4)
+                s_w2, s_w4 = int(s_w / 2), int(s_w / 4)
+
+                # yb = tf.reshape(y, [-1, 1, 1, self.y_dim])
+                yb = tf.reshape(y_eval, [10000, 1, 1, self.y_dim])
+                z = concat([z, y_eval], 1)
+
+                h0 = tf.nn.relu(self.g_bn0(linear(z, self.gfc_dim, 'g_h0_lin')))
+                h0 = concat([h0, y_eval], 1)
+
+                h1 = tf.nn.relu(self.g_bn1(
+                    linear(h0, self.gf_dim * 2 * s_h4 * s_w4, 'g_h1_lin'), train=False))
+                h1 = tf.reshape(h1, [10000, s_h4, s_w4, self.gf_dim * 2])
+                h1 = conv_cond_concat(h1, yb)
+
+                h2 = tf.nn.relu(self.g_bn2(
+                    deconv2d(h1, [10000, s_h2, s_w2, self.gf_dim * 2], name='g_h2'), train=False))
+                h2 = conv_cond_concat(h2, yb)
+
+                return tf.nn.sigmoid(deconv2d(h2, [10000, s_h, s_w, self.c_dim], name='g_h3'))
+
     def load_mnist(self):
         data_dir = os.path.join("./data", self.dataset_name)
 
@@ -515,6 +697,57 @@ class DCGAN(object):
             y_vec[i, y[i]] = 1.0
 
         return X / 255., y_vec
+
+
+    def load_mnist_with_test(self):
+        data_dir = os.path.join("./data", self.dataset_name)
+
+        fd = open(os.path.join(data_dir, 'train-images-idx3-ubyte'))
+        loaded = np.fromfile(file=fd, dtype=np.uint8)
+        trX = loaded[16:].reshape((60000, 28, 28, 1)).astype(np.float)
+
+        fd = open(os.path.join(data_dir, 'train-labels-idx1-ubyte'))
+        loaded = np.fromfile(file=fd, dtype=np.uint8)
+        trY = loaded[8:].reshape((60000)).astype(np.float)
+
+        fd = open(os.path.join(data_dir, 't10k-images-idx3-ubyte'))
+        loaded = np.fromfile(file=fd, dtype=np.uint8)
+        teX = loaded[16:].reshape((10000, 28, 28, 1)).astype(np.float)
+
+        fd = open(os.path.join(data_dir, 't10k-labels-idx1-ubyte'))
+        loaded = np.fromfile(file=fd, dtype=np.uint8)
+        teY = loaded[8:].reshape((10000)).astype(np.float)
+
+        trY = np.asarray(trY).astype(np.int)
+        teY = np.asarray(teY).astype(np.int)
+
+        # X = np.concatenate((trX, teX), axis=0)
+        # y = np.concatenate((trY, teY), axis=0).astype(np.int)
+
+        X = trX
+        XT = teX
+
+        seed = 547
+        np.random.seed(seed)
+        np.random.shuffle(X)
+        np.random.seed(seed)
+        np.random.shuffle(trY)
+
+        np.random.seed(seed)
+        np.random.shuffle(XT)
+        np.random.seed(seed)
+        np.random.shuffle(teY)
+
+        y_vec = np.zeros((len(trY), self.y_dim), dtype=np.float)
+        for i, label in enumerate(trY):
+            y_vec[i, trY[i]] = 1.0
+
+
+        y_vec_testing = np.zeros((len(teY), self.y_dim), dtype=np.float)
+        for i, label in enumerate(teY):
+            y_vec_testing[i, teY[i]] = 1.0
+
+        return X / 255., y_vec, XT / 255., y_vec_testing
 
     @property
     def model_dir(self):

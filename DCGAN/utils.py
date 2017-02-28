@@ -28,8 +28,8 @@ def get_image(image_path, input_height, input_width,
                      resize_height, resize_width, is_crop)
 
 
-def save_images(images, size, image_path):
-    return imsave(inverse_transform(images), size, image_path)
+def save_images(images, size, image_path,scores=None):
+    return imsave(inverse_transform(images), size, image_path,scores)
 
 
 def imread(path, is_grayscale=False):
@@ -43,21 +43,37 @@ def merge_images(images, size):
     return inverse_transform(images)
 
 
-def merge(images, size):
+def merge(images, size,scores=None):
     # print(images.shape)
-    rho = np.zeros((8*8*2, 28, 28, 3), dtype=np.float32)
+    rho = np.ones((8*8*2, 28, 28, 3), dtype=np.float32)
     index = 0
+    regularIndex = 0
     for i in images:
         # # print(rho[0])
         # rho[index] = i
         #
         # score = index
         #
+
+        score = int( scores[regularIndex][0] * 100 )
+        # score = scores[regularIndex]
+
         data = np.zeros((28, 28, 3), dtype=np.uint8)
         img = Image.fromarray(data)
         draw = ImageDraw.Draw(img)
         font = ImageFont.load_default().font
-        draw.text((1, 0), str("YO"), (128, 255, 255), font=font)
+
+        # draw.text((1, 0), str(score), (255, 255, 255), font=font)
+        if(regularIndex % 2 == 0):
+            #Is real image
+            draw.text((1, 15), "Real", (0, 200, 0), font=font)
+        else:
+            draw.text((1, 15), "Fake", (200, 0, 0), font=font)
+
+        if (score > 50):
+            draw.text((1, 8), str(score), (10, 255, 10), font=font)
+        else:
+            draw.text((1, 8), str(score), (255, 10, 10), font=font)
         #
         # rho[index+1] = img
         hei = np.asarray(img)/255
@@ -70,6 +86,7 @@ def merge(images, size):
 
         # print(rho[0])
         index +=2
+        regularIndex += 1
         # break
     images = rho
     # print(images.shape)
@@ -85,8 +102,8 @@ def merge(images, size):
     return img
 
 
-def imsave(images, size, path):
-    return scipy.misc.imsave(path, merge(images, size))
+def imsave(images, size, path,scores=None):
+    return scipy.misc.imsave(path, merge(images, size,scores))
 
 
 def center_crop(x, crop_h, crop_w,
