@@ -55,6 +55,9 @@ class DCGAN(object):
         self.gfc_dim = gfc_dim
         self.dfc_dim = dfc_dim
 
+
+        self.evalSize = 100
+
         self.c_dim = c_dim
 
         # batch normalization : deals with poor initialization helps gradient flow
@@ -79,8 +82,8 @@ class DCGAN(object):
     def build_model(self):
         if self.y_dim:
             self.y = tf.placeholder(tf.float32, [self.batch_size, self.y_dim], name='y')
-            self.y_eval = tf.placeholder(tf.float32, [10000, self.y_dim], name='y_eval')
-            self.y_eval2 = tf.placeholder(tf.float32, [20000, self.y_dim], name='y_eval2')
+            self.y_eval = tf.placeholder(tf.float32, [self.evalSize, self.y_dim], name='y_eval')
+            self.y_eval2 = tf.placeholder(tf.float32, [self.evalSize*2, self.y_dim], name='y_eval2')
 
         if self.is_crop:
             image_dims = [self.output_height, self.output_width, self.c_dim]
@@ -93,7 +96,7 @@ class DCGAN(object):
             tf.float32, [self.sample_num] + image_dims, name='sample_inputs')
 
 
-        self.eval_input = tf.placeholder(tf.float32, [10000] + image_dims, name='eval_input')
+        self.eval_input = tf.placeholder(tf.float32, [self.evalSize] + image_dims, name='eval_input')
 
         inputs = self.inputs
         sample_inputs = self.sample_inputs
@@ -116,7 +119,7 @@ class DCGAN(object):
                 self.discriminator(self.G, self.y, reuse=True)
 
             self.discriminatorOutput = self.discriminator(inputs, self.y, reuse=True)
-            self.discriminatorEval = self.discriminator(self.eval_input, self.y_eval, reuse=True,tempBatchSize=10000)
+            self.discriminatorEval = self.discriminator(self.eval_input, self.y_eval, reuse=True,tempBatchSize=self.evalSize)
         else:
             self.G = self.generator(self.z)
             self.D, self.D_logits = self.discriminator(inputs)
@@ -170,7 +173,7 @@ class DCGAN(object):
         """Train DCGAN"""
         if config.dataset == 'mnist':
             # data_X, data_y = self.load_mnist()
-            data_X, data_y, testing_x, testing_y  = self.load_mnist_with_test()
+            data_X, data_y, testing_x_all, testing_y_all  = self.load_mnist_with_test()
         else:
             data = glob(os.path.join("./data", config.dataset, self.input_fname_pattern))
         # np.random.shuffle(data)
@@ -200,6 +203,11 @@ class DCGAN(object):
         if config.dataset == 'mnist':
             sample_inputs = data_X[0:self.sample_num]
             sample_labels = data_y[0:self.sample_num]
+
+            testing_x = testing_x_all[0:self.evalSize]
+            testing_y = testing_y_all[0:self.evalSize]
+
+
         else:
             sample_files = data[0:self.sample_num]
             sample = [
@@ -251,7 +259,7 @@ class DCGAN(object):
                         batch_images = np.array(batch).astype(np.float32)
 
                 batch_z = np.random.uniform(-1, 1, [config.batch_size, self.z_dim]).astype(np.float32)
-                eval_z = np.random.uniform(-1, 1, [10000, self.z_dim]).astype(np.float32)
+                eval_z = np.random.uniform(-1, 1, [self.evalSize, self.z_dim]).astype(np.float32)
 
                 if config.dataset == 'mnist':
                     # Update D network
@@ -313,7 +321,7 @@ class DCGAN(object):
                       % (epoch, idx, batch_idxs,
                          time.time() - start_time, errD_fake + errD_real, errG))
 
-                if np.mod(counter, 30) == 1 or True:
+                if np.mod(counter, 30) == 1 :
                     if config.dataset == 'mnist':
                         samples, d_loss, g_loss = self.sess.run(
                             [self.sampler, self.d_loss, self.g_loss],
@@ -324,7 +332,7 @@ class DCGAN(object):
                             }
                         )
 
-                        print("Creating eval data")
+                        # print("Creating eval data")
                         samples_eval = self.sess.run(
                             [self.evaulator],
                             feed_dict={
@@ -335,19 +343,19 @@ class DCGAN(object):
                         )
 
                         samples_eval = np.asarray(samples_eval[0])
-                        print("Done. Size: ", len(samples_eval))
-                        print("Done. Size[0]: ", len(samples_eval[0]))
-                        print("Done. Size[0][0]: ", len(samples_eval[0][0]))
+                        # print("Done. Size: ", len(samples_eval))
+                        # print("Done. Size[0]: ", len(samples_eval[0]))
+                        # print("Done. Size[0][0]: ", len(samples_eval[0][0]))
 
 
-                        labelsReal = [1] * 10000
-                        labelsFake = [0] * 10000
+                        labelsReal = [1] * self.evalSize
+                        labelsFake = [0] * self.evalSize
 
                         labels = np.asarray(labelsReal + labelsFake)
 
 
-                        print("testing_x.shape",testing_x.shape)
-                        print("testing_x.shape",samples_eval.shape)
+                        # print("testing_x.shape",testing_x.shape)
+                        # print("testing_x.shape",samples_eval.shape)
 
                         # X = np.concatenate((testing_x,samples_eval ), axis=0)
                         # yLAbels = np.concatenate((testing_y, testing_y), axis=0).astype(np.int)
@@ -360,7 +368,7 @@ class DCGAN(object):
                         # np.random.seed(seed)
                         # np.random.shuffle(labels)
 
-                        print(labels)
+                        # print(labels)
 
 
 
@@ -373,17 +381,21 @@ class DCGAN(object):
                                                     feed_dict={self.inputs: samples,self.y: batch_labels})
 
 
+
+
+
+
                         evalDiscOuput = self.sess.run([self.discriminatorEval],
                                                     feed_dict={self.eval_input: samples_eval,self.y_eval: testing_y})
 
 
                         correct = 0
-                        for res in range(0,10000):
+                        for res in range(0,self.evalSize):
                             # print("Real ", evalDiscOuput[0][0][res],' - ', 1.0)
                             if(evalDiscOuput[0][0][res] > 0.5):
                                 correct += 1
                                 # print("     - correct!")
-                        percentage =  ((float(correct) / float(10000))*100)
+                        percentage =  ((float(correct) / float(self.evalSize))*100)
 
                         deri = ""
                         if(percentage > lastRealAccuracy):
@@ -400,13 +412,13 @@ class DCGAN(object):
                                                     feed_dict={self.eval_input: testing_x,self.y_eval: testing_y})
 
                         correct = 0
-                        for res in range(0,10000):
+                        for res in range(0,self.evalSize):
                             # print("Real ", evalDiscOuput[0][0][res],' - ', 1.0)
                             if(evalDiscOuput[0][0][res] < 0.5):
                                 correct += 1
                                 # print("     - correct!")
 
-                        percentage = ((float(correct) / float(10000)) * 100)
+                        percentage = ((float(correct) / float(self.evalSize)) * 100)
 
                         deri = ""
                         if(percentage > lastRealAccuracy):
@@ -644,7 +656,7 @@ class DCGAN(object):
                 s_w2, s_w4 = int(s_w / 2), int(s_w / 4)
 
                 # yb = tf.reshape(y, [-1, 1, 1, self.y_dim])
-                yb = tf.reshape(y_eval, [10000, 1, 1, self.y_dim])
+                yb = tf.reshape(y_eval, [self.evalSize, 1, 1, self.y_dim])
                 z = concat([z, y_eval], 1)
 
                 h0 = tf.nn.relu(self.g_bn0(linear(z, self.gfc_dim, 'g_h0_lin')))
@@ -652,14 +664,14 @@ class DCGAN(object):
 
                 h1 = tf.nn.relu(self.g_bn1(
                     linear(h0, self.gf_dim * 2 * s_h4 * s_w4, 'g_h1_lin'), train=False))
-                h1 = tf.reshape(h1, [10000, s_h4, s_w4, self.gf_dim * 2])
+                h1 = tf.reshape(h1, [self.evalSize, s_h4, s_w4, self.gf_dim * 2])
                 h1 = conv_cond_concat(h1, yb)
 
                 h2 = tf.nn.relu(self.g_bn2(
-                    deconv2d(h1, [10000, s_h2, s_w2, self.gf_dim * 2], name='g_h2'), train=False))
+                    deconv2d(h1, [self.evalSize, s_h2, s_w2, self.gf_dim * 2], name='g_h2'), train=False))
                 h2 = conv_cond_concat(h2, yb)
 
-                return tf.nn.sigmoid(deconv2d(h2, [10000, s_h, s_w, self.c_dim], name='g_h3'))
+                return tf.nn.sigmoid(deconv2d(h2, [self.evalSize, s_h, s_w, self.c_dim], name='g_h3'))
 
     def load_mnist(self):
         data_dir = os.path.join("./data", self.dataset_name)
