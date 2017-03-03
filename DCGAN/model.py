@@ -271,7 +271,7 @@ class DCGAN(object):
                                                    })
                     self.writer.add_summary(summary_str, counter)
 
-                    if(True):
+                    if(lastRealAccuracy > 70):
                         # Update G network
                         _, summary_str = self.sess.run([g_optim, self.g_sum],
                                                        feed_dict={
@@ -284,6 +284,8 @@ class DCGAN(object):
                         _, summary_str = self.sess.run([g_optim, self.g_sum],
                                                        feed_dict={self.z: batch_z, self.y: batch_labels})
                         self.writer.add_summary(summary_str, counter)
+                    else:
+                        print("Freezing the generator!")
 
                     errD_fake = self.d_loss_fake.eval({
                         self.z: batch_z,
@@ -422,9 +424,9 @@ class DCGAN(object):
                         percentage = ((float(correct) / float(self.evalSize)) * 100)
 
                         deri = ""
-                        if(percentage > lastRealAccuracy):
+                        if(percentage > lastFakeAccuracy):
                             deri = "+"
-                        elif(percentage < lastRealAccuracy):
+                        elif(percentage < lastFakeAccuracy):
                             deri = "-"
 
                         print("Correct (Fake): ",deri, percentage,"% (",correct,")")
