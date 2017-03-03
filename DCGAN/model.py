@@ -271,18 +271,19 @@ class DCGAN(object):
                                                    })
                     self.writer.add_summary(summary_str, counter)
 
-                    # Update G network
-                    _, summary_str = self.sess.run([g_optim, self.g_sum],
-                                                   feed_dict={
-                                                       self.z: batch_z,
-                                                       self.y: batch_labels,
-                                                   })
-                    self.writer.add_summary(summary_str, counter)
+                    if(True):
+                        # Update G network
+                        _, summary_str = self.sess.run([g_optim, self.g_sum],
+                                                       feed_dict={
+                                                           self.z: batch_z,
+                                                           self.y: batch_labels,
+                                                       })
+                        self.writer.add_summary(summary_str, counter)
 
-                    # Run g_optim twice to make sure that d_loss does not go to zero (different from paper)
-                    _, summary_str = self.sess.run([g_optim, self.g_sum],
-                                                   feed_dict={self.z: batch_z, self.y: batch_labels})
-                    self.writer.add_summary(summary_str, counter)
+                        # Run g_optim twice to make sure that d_loss does not go to zero (different from paper)
+                        _, summary_str = self.sess.run([g_optim, self.g_sum],
+                                                       feed_dict={self.z: batch_z, self.y: batch_labels})
+                        self.writer.add_summary(summary_str, counter)
 
                     errD_fake = self.d_loss_fake.eval({
                         self.z: batch_z,
@@ -392,7 +393,7 @@ class DCGAN(object):
                         correct = 0
                         for res in range(0,self.evalSize):
                             # print("Real ", evalDiscOuput[0][0][res],' - ', 1.0)
-                            if(evalDiscOuput[0][0][res] > 0.5):
+                            if(evalDiscOuput[0][0][res] < 0.5):
                                 correct += 1
                                 # print("     - correct!")
                         percentage =  ((float(correct) / float(self.evalSize))*100)
@@ -414,7 +415,7 @@ class DCGAN(object):
                         correct = 0
                         for res in range(0,self.evalSize):
                             # print("Real ", evalDiscOuput[0][0][res],' - ', 1.0)
-                            if(evalDiscOuput[0][0][res] < 0.5):
+                            if(evalDiscOuput[0][0][res] > 0.5):
                                 correct += 1
                                 # print("     - correct!")
 
