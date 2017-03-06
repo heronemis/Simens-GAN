@@ -411,33 +411,35 @@ class DCGAN(object):
 
                 # print("Creating eval data")
 
-                evalBatches = min(self.evalSize, config.train_size) // config.batch_size
-                print("evalBatches:", evalBatches)
 
-                evalGenerated = []
+                if idx <= 100:
+                    evalBatches = min(self.evalSize, config.train_size) // config.batch_size
+                    print("evalBatches:", evalBatches)
 
-                eval_z = np.random.uniform(-1, 1, [self.evalSize, self.z_dim]).astype(np.float32)
-                samples_eval = self.sess.run(
-                    [self.generatorEval ],
-                    feed_dict={
-                        self.z: eval_z,
-                    }
-                )
+                    evalGenerated = []
 
-                # evalGenerated = samples_eval[0
+                    eval_z = np.random.uniform(-1, 1, [self.evalSize, self.z_dim]).astype(np.float32)
+                    samples_eval = self.sess.run(
+                        [self.generatorEval ],
+                        feed_dict={
+                            self.z: eval_z,
+                        }
+                    )
 
-                print("Done. Size: ", len(samples_eval))
-                print("Done. Size[0]: ", len(samples_eval[0]))
-                print("Done. Size[0][0]: ", len(samples_eval[0][0]))
-                print("Done. Size[0][0]: ", len(samples_eval[0][0][0]))
-                print("Done. Size[0][0]: ", len(samples_eval[0][0][0][0]))
+                    # evalGenerated = samples_eval[0
+
+                    print("Done. Size: ", len(samples_eval))
+                    print("Done. Size[0]: ", len(samples_eval[0]))
+                    print("Done. Size[0][0]: ", len(samples_eval[0][0]))
+                    print("Done. Size[0][0]: ", len(samples_eval[0][0][0]))
+                    print("Done. Size[0][0]: ", len(samples_eval[0][0][0][0]))
 
 
 
-                samples_eval = np.asarray(samples_eval[0])
+                    samples_eval = np.asarray(samples_eval[0])
 
-                lastRealAccuracy = self.evalImages(lastRealAccuracy, eval_real, config, realImages=True)
-                lastFakeAccuracy = self.evalImages(lastFakeAccuracy, samples_eval, config, realImages=False)
+                    lastRealAccuracy = self.evalImages(lastRealAccuracy, eval_real, config, realImages=True)
+                    lastFakeAccuracy = self.evalImages(lastFakeAccuracy, samples_eval, config, realImages=False)
 
                 if np.mod(counter, 30) == 1 or True:
                     if config.dataset == 'mnist':
