@@ -29,8 +29,8 @@ def get_image(image_path, input_height, input_width,
 
 
 def save_images(images, size, image_path,scores=None):
-    return imsave(inverse_transform(images), size, image_path)
-    # return imsave(inverse_transform(images), size, image_path,scores)
+    # return imsave(inverse_transform(images), size, image_path)
+    return imsave(inverse_transform(images), size, image_path,scores)
 
 
 def imread(path, is_grayscale=False):
@@ -43,7 +43,7 @@ def imread(path, is_grayscale=False):
 def merge_images(images, size):
     return inverse_transform(images)
 
-def merge(images, size):
+def merge2(images, size):
   h, w = images.shape[1], images.shape[2]
   img = np.zeros((h * size[0], w * size[1], 3))
   for idx, image in enumerate(images):
@@ -52,55 +52,65 @@ def merge(images, size):
     img[j*h:j*h+h, i*w:i*w+w, :] = image
   return img
 
-def merge2(images, size,scores=None):
-    # # print(images.shape)
-    # rho = np.ones((8*8*2, 28, 28, 3), dtype=np.float32)
-    # index = 0
-    # regularIndex = 0
-    # for i in images:
-    #     # # print(rho[0])
-    #     # rho[index] = i
-    #     #
-    #     # score = index
-    #     #
-    #
-    #     score = int( scores[regularIndex][0] * 100 )
-    #     # score = scores[regularIndex]
-    #
-    #     data = np.zeros((28, 28, 3), dtype=np.uint8)
-    #     img = Image.fromarray(data)
-    #     draw = ImageDraw.Draw(img)
-    #     font = ImageFont.load_default().font
-    #
-    #     # draw.text((1, 0), str(score), (255, 255, 255), font=font)
-    #     if(regularIndex % 2 == 0):
-    #         #Is real image
-    #         draw.text((1, 15), "Real", (0, 200, 0), font=font)
-    #     else:
-    #         draw.text((1, 15), "Fake", (200, 0, 0), font=font)
-    #
-    #     if (score > 50):
-    #         draw.text((1, 8), str(score), (10, 255, 10), font=font)
-    #     else:
-    #         draw.text((1, 8), str(score), (255, 10, 10), font=font)
-    #     #
-    #     # rho[index+1] = img
-    #     hei = np.asarray(img)/255
-    #
-    #     # rho[index] =  np.ones((28, 28, 3), dtype=np.uint8)
-    #     rho[index] =  i
-    #     rho[index+1] = hei
-    #
-    #
-    #
-    #     # print(rho[0])
-    #     index +=2
-    #     regularIndex += 1
-    #     # break
-    # images = rho
-    # # print(images.shape)
-
+def merge(images, size,scores=None):
+    if(scores is None):
+        return merge2(images, size)
+    # print(images.shape)
     h, w = images.shape[1], images.shape[2]
+    batchSize = images.shape[0]
+    print("h: ", h)
+    print("w: ", w)
+    print("batchSize: ", batchSize)
+
+    rho = np.ones((batchSize*2, h, w, 3), dtype=np.float32)
+    index = 0
+    regularIndex = 0
+    for i in images:
+        # # print(rho[0])
+        # rho[index] = i
+        #
+        # score = index
+        #
+
+        score = int( scores[regularIndex][0] * 100 )
+        # score = scores[regularIndex]
+        # score = 32
+
+        data = np.zeros((h, w, 3), dtype=np.uint8)
+        img = Image.fromarray(data)
+        draw = ImageDraw.Draw(img)
+        font = ImageFont.load_default().font
+
+        # draw.text((1, 0), str(score), (255, 255, 255), font=font)
+        if(regularIndex % 2 == 0):
+            #Is real image
+            draw.text((1, 15), "Real", (0, 200, 0), font=font)
+        else:
+            draw.text((1, 15), "Fake", (200, 0, 0), font=font)
+
+        if (score > 50):
+            draw.text((1, 8), str(score), (10, 255, 10), font=font)
+        else:
+            draw.text((1, 8), str(score), (255, 10, 10), font=font)
+        #
+        # rho[index+1] = img
+        hei = np.asarray(img)/255
+
+        # rho[index] =  np.ones((28, 28, 3), dtype=np.uint8)
+        rho[index] =  i
+        rho[index+1] = hei
+
+
+
+        # print(rho[0])
+        index +=2
+        regularIndex += 1
+        # break
+    images = rho
+    # print(images.shape)
+
+
+
     img = np.zeros((h * size[0]*2, w * size[1], 3))
     # print("img: ",img.shape)
     for idx, image in enumerate(images):
@@ -112,7 +122,7 @@ def merge2(images, size,scores=None):
 
 
 def imsave(images, size, path,scores=None):
-    return scipy.misc.imsave(path, merge(images, size))
+    return scipy.misc.imsave(path, merge(images, size,scores))
 
 
 def center_crop(x, crop_h, crop_w,
