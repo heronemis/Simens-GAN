@@ -11,6 +11,11 @@ from ops import *
 from utils import *
 
 
+import PIL
+from PIL import Image
+from PIL import ImageOps
+
+
 def conv_out_size_same(size, stride):
     return int(math.ceil(float(size) / float(stride)))
 
@@ -48,6 +53,7 @@ class DCGAN(object):
 
         self.y_dim = y_dim
         self.z_dim = z_dim
+        self.test = False
 
         self.gf_dim = gf_dim
         self.df_dim = df_dim
@@ -55,7 +61,7 @@ class DCGAN(object):
         self.gfc_dim = gfc_dim
         self.dfc_dim = dfc_dim
 
-        self.evalSize = batch_size * 4
+        self.evalSize = batch_size * 2
 
         self.c_dim = c_dim
 
@@ -89,14 +95,21 @@ class DCGAN(object):
         else:
             image_dims = [self.input_height, self.input_height, self.c_dim]
 
-        self.inputs = tf.placeholder(
-            tf.float32, [self.batch_size] + image_dims, name='real_images')
+
+
+        self.inputs = tf.placeholder(tf.float32, [self.batch_size] + image_dims, name='real_images')
+
+        self.inputsProc = tf.placeholder(tf.float32, [self.batch_size] + image_dims, name='inputsProc')
+
+
+
         self.sample_inputs = tf.placeholder(
             tf.float32, [self.sample_num] + image_dims, name='sample_inputs')
 
         self.eval_input = tf.placeholder(tf.float32, [self.evalSize] + image_dims, name='eval_input')
 
         inputs = self.inputs
+        inputsProc = self.inputsProc
         sample_inputs = self.sample_inputs
 
         self.z = tf.placeholder(
@@ -118,14 +131,52 @@ class DCGAN(object):
             self.discriminatorEval = self.discriminator(self.eval_input, self.y_eval, reuse=True,
                                                         tempBatchSize=self.evalSize)
         else:
-            self.G = self.generator(self.z)
+
             self.D, self.D_logits = self.discriminator(inputs)
 
-            self.sampler = self.sampler(self.z)
-            self.D_, self.D_logits_ = self.discriminator(self.G, reuse=True)
+            # self.GInit = self.generator(self.z, useBatching=False)
+            self.G = self.generator(self.z)
+
+
+
+
+            self.generatorOuput = self.generator(self.z, y=None, reuse=True, tempBatchSize=self.evalSize,
+                                                 useBatching=False)
+
             self.discriminatorOutput = self.discriminator(inputs, reuse=True)
 
-            self.generatorEval = self.generator(self.z, y=None,reuse=True, tempBatchSize=self.evalSize)
+
+
+            # self.G = self.generator(self.z,reuse=True,useBatching=True)
+            # self.generatorEval = self.generator(self.z, y=None, reuse=True, tempBatchSize=self.evalSize)
+
+
+
+
+
+
+            self.sampler = self.sampler(self.z)
+
+            # self.GBatch = self.batchGenerator() #test=False
+            # self.GBatch = self.batchGenerator(self.z) #test=False
+            # self.generatorEvalasdasdasd = self.generator(self.z, y=None, reuse=True, tempBatchSize=self.evalSize,test=True)
+
+            # self.D_, self.D_logits_ = self.discriminator(self.G, reuse=True)
+            self.D_, self.D_logits_ = self.discriminator(self.G, reuse=True)
+            #
+            # self.D_, self.D_logits_ = self.discriminator(inputsProc, reuse=True)
+            self.generatorEval = self.generator(self.z, y=None, reuse=True, tempBatchSize=self.evalSize,
+                                                useBatching=False)
+
+
+
+            # self.GTest = self.generator(self.z,reuse=True, useBatching=True)
+
+
+
+            # self.generatorEval = self.generator(self.z, y=None, reuse=True, tempBatchSize=self.evalSize, useBatching=True)
+
+
 
         self.d_sum = histogram_summary("d", self.D)
         self.d__sum = histogram_summary("d_", self.D_)
@@ -212,15 +263,13 @@ class DCGAN(object):
 
 
         ## SIMENS LILLE CONFING ##
-
+        self.train_size = config.train_size
         shouldLoadData = False
         useEvalSet = True
         writeLogs = False
+        useImprovedZ = False
 
         ## SIMENS LILLE CONFING ##
-
-
-
 
 
 
@@ -252,10 +301,21 @@ class DCGAN(object):
         except:
             tf.initialize_all_variables().run()
 
+        # self.G = self.generator(self.z, reuse=True, useBatching=True)
+
         self.g_sum = merge_summary([self.z_sum, self.d__sum,
                                     self.G_sum, self.d_loss_fake_sum, self.g_loss_sum])
         self.d_sum = merge_summary(
             [self.z_sum, self.d_sum, self.d_loss_real_sum, self.d_loss_sum])
+
+
+
+
+        # self.GTest = self.generator(self.z, reuse=True, useBatching=True)
+
+
+
+
 
         if(writeLogs):
             self.writer = SummaryWriter("./logs", self.sess.graph)
@@ -264,6 +324,8 @@ class DCGAN(object):
 
         lastFakeAccuracy = 0
         lastRealAccuracy = 0
+
+        self.test = True
 
         if config.dataset == 'mnist':
             sample_inputs = data_X[0:self.sample_num]
@@ -327,6 +389,33 @@ class DCGAN(object):
                         batch_images = np.array(batch).astype(np.float32)
 
                 batch_z = np.random.uniform(-1, 1, [config.batch_size, self.z_dim]).astype(np.float32)
+                _, batch_z = self.batchGenerator()
+
+
+
+                if(useImprovedZ):
+
+                    basewidth = 10
+
+                    for imgName in batch_files:
+                        img = Image.open(imgName)
+                        # img = img.convert('L')  # convert image to greyscale
+                        wpercent = (basewidth / float(img.size[0]))
+                        hsize = int((float(img.size[1]) * float(wpercent)))
+                        img = img.resize((basewidth, basewidth), PIL.Image.ANTIALIAS)  # resizes the image to 10x10
+                        img = img.convert('L')  # convert image to black and white
+                        # name = 'processedImages/' + str(counter) + '.jpeg'
+                        # img = ImageOps.invert(img)
+                        # img.save(name)
+
+                        pix = np.array(img, np.float32)
+                        pix = (pix - 128) / 128  # Scales the pixels to be between -1 and 1
+                        pix = pix.flatten()  # flattens the image to a single array of lenght of 100
+
+                        batch_z[counter] = pix  # Adds the image to the z-array
+
+
+
 
 
                 if config.dataset == 'mnist':
@@ -374,8 +463,11 @@ class DCGAN(object):
                 else:
                     # Update D network
                     # if (lastRealAccuracy > 70):
-                    _, summary_str = self.sess.run([d_optim, self.d_sum],
-                                                   feed_dict={self.inputs: batch_images, self.z: batch_z})
+                    # _, summary_str = self.sess.run([d_optim, self.d_sum],feed_dict={self.inputs: batch_images, self.inputsProc: inputs})
+                    _, summary_str = self.sess.run([d_optim, self.d_sum],feed_dict={self.inputs: batch_images, self.z: batch_z})
+
+
+
                     if (writeLogs):
                         self.writer.add_summary(summary_str, counter)
 
@@ -422,11 +514,11 @@ class DCGAN(object):
 
                     # evalGenerated = samples_eval[0
 
-                    print("Done. Size: ", len(samples_eval))
-                    print("Done. Size[0]: ", len(samples_eval[0]))
-                    print("Done. Size[0][0]: ", len(samples_eval[0][0]))
-                    print("Done. Size[0][0]: ", len(samples_eval[0][0][0]))
-                    print("Done. Size[0][0]: ", len(samples_eval[0][0][0][0]))
+                    # print("Done. Size: ", len(samples_eval))
+                    # print("Done. Size[0]: ", len(samples_eval[0]))
+                    # print("Done. Size[0][0]: ", len(samples_eval[0][0]))
+                    # print("Done. Size[0][0]: ", len(samples_eval[0][0][0]))
+                    # print("Done. Size[0][0]: ", len(samples_eval[0][0][0][0]))
 
 
 
@@ -436,6 +528,9 @@ class DCGAN(object):
                     lastFakeAccuracy = self.evalImages(lastFakeAccuracy, samples_eval, config, realImages=False)
 
                 if np.mod(counter, 30) == 1 or True:
+
+                    # self.batchGenerator()
+
                     if config.dataset == 'mnist':
                         samples, d_loss, g_loss = self.sess.run(
                             [self.sampler, self.d_loss, self.g_loss],
@@ -567,15 +662,37 @@ class DCGAN(object):
                     else:
 
                         eval_z = np.random.uniform(-1, 1, [64, self.z_dim]).astype(np.float32)
-                        samples, d_loss, g_loss = self.sess.run(
-                            [self.sampler, self.d_loss, self.g_loss],
-                            feed_dict={
-                                self.z: sample_z,
-                                self.inputs: sample_inputs,
-                            },
-                        )
+                        samples, eval_z = self.batchGenerator()
+                        # samples, d_loss, g_loss = self.sess.run(
+                        #     [self.sampler, self.d_loss, self.g_loss],
+                        #     feed_dict={
+                        #         self.z: sample_z,
+                        #         self.inputs: sample_inputs,
+                        #     },
+                        # )
 
-                        samples_eval = np.asarray(samples_eval[0])
+                        # samples = self.sess.run(
+                        #     [self.generatorEval],
+                        #     feed_dict={
+                        #         self.z: eval_z,
+                        #     }
+                        # )
+
+
+                        # samples = self.sess.run(
+                        #     [self.G],
+                        #     feed_dict={
+                        #         self.z: eval_z,
+                        #     }
+                        # )
+
+                        # print("Done. Size: ", len(samples))
+                        # print("Done. Size[0]: ", len(samples[0]))
+                        # print("Done. Size[0][0]: ", len(samples[0][0]))
+                        # print("Done. Size[0][0]: ", len(samples[0][0][0]))
+                        # print("Done. Size[0][0]: ", len(samples[0][0][0][0]))
+
+                        # samples = np.asarray(samples[0])
                         for i in range(0, 32):
                             samples[i * 2] = batch_images[i * 2]
                             # samples[i*2] = batch_images[i]
@@ -600,12 +717,148 @@ class DCGAN(object):
                         # )
                         save_images(samples, [8, 8],
                                     './{}/train_{:02d}_{:04d}.png'.format(config.sample_dir, epoch, idx), batchOutput[0][0])
-                        print("[Sample] d_loss: %.8f, g_loss: %.8f" % (d_loss, g_loss))
+                        # print("[Sample] d_loss: %.8f, g_loss: %.8f" % (d_loss, g_loss))
                         # except:
                         #     print("one pic error!...")
 
                 if np.mod(counter, 500) == 2:
                     self.save(config.checkpoint_dir, counter)
+
+
+
+    def batchGenerator(self,getBestImagesOnly=True):
+
+        # eval_z = np.random.uniform(-1, 1, [64, self.z_dim]).astype(np.float32)
+        # return self.generator(z, reuse=True)
+
+        # eval_z = np.random.uniform(-1, 1, [self.batch_size, self.z_dim]).astype(np.float32)
+        # samples_eval = self.sess.run(
+        #     [self.G],
+        #     feed_dict={
+        #         self.z: eval_z,
+        #     }
+        # )
+        #
+        # return  samples_eval
+
+
+        generationSize = self.batch_size * 5
+        # images = self.generator(z,reuse=False, tempBatchSize=generationSize)
+        scores = []
+        # getBestImagesOnly = True
+        indeices = list(range(0, self.evalSize))
+
+        # eval_z = np.random.uniform(-1, 1, [64, self.z_dim]).astype(np.float32)
+        eval_z = np.random.uniform(-1, 1, [self.evalSize, self.z_dim]).astype(np.float32)
+        # eval_z = np.zeros((self.evalSize, self.z_dim, self.output_width, self.c_dim), dtype=np.float32)
+        #
+
+        # print(eval_z)
+        #
+        # self.G
+        samples_eval = self.sess.run(
+            [self.generatorOuput],
+            feed_dict={
+                self.z: eval_z,
+            }
+        )
+
+        # return samples_eval
+
+        # samples_eval = self.generator( eval_z, y=None,reuse=True, tempBatchSize=self.evalSize, useBatching=False)
+
+        images = np.asarray(samples_eval[0])
+        # print("samples_eval shape",samples_eval.shape)
+        # print("Images shape",images.shape)
+        #
+        # print("!!!!!!!!!!!!!!!!!!!!!!!!! ")
+        # print("!!!!!!!!!!!!!!!!!!!!!!!!! ")
+        # print("!!!!!!!!!!!!!!!!!!!!!!!!! ")
+        # print("!!!!!!!!!!!!!!!!!!!!!!!!! ")
+        # print("!!!!!!!!!!!!!!!!!!!!!!!!! ")
+
+        # try:
+        # hei = images[0]
+        # except:
+        #     return self.generator(eval_z,reuse=True)
+
+
+
+
+        # try:
+        batch_idxs = min(self.evalSize, np.inf) // self.batch_size
+        # except:
+        #     return samples_eval
+        # print("!!!!!!!!!!!!!!!!!!!!!!!!! ", len(images))
+        # print("!!!!!!!!!!!!!!!!!!!!!!!!! batch_idxs:", (batch_idxs))
+        # print(" ")
+
+        counter = 0
+
+        for idx in range(0, int(batch_idxs)):
+            batch_images = images[idx * self.batch_size:(idx + 1) * self.batch_size]
+            discriminatorScoresBatch = self.sess.run([self.discriminatorOutput],
+                                                     feed_dict={self.inputs: batch_images})
+
+            # scores.append(list(discriminatorScoresBatch[0][0]))
+
+
+            for res in range(0, self.batch_size):
+                scores.append(discriminatorScoresBatch[0][0][res][0])
+
+        # print("Done. Size: ", len(samples_eval))
+        # print("Done. Size[0]: ", len(samples_eval[0]))
+        # print("Done. Size[0][0]: ", len(samples_eval[0][0]))
+        # print("Done. Size[0][0][0]: ", len(samples_eval[0][0][0]))
+        # print("Done. Size[0][0][0][0]: ", len(samples_eval[0][0][0][0]))
+
+
+        # print("scores:",scores)
+        # print("indeices:",indeices)
+
+        sortedIndecies = [x for (y, x) in sorted(zip(scores, indeices), key=lambda pair: pair[0])]
+        print(sortedIndecies)
+        if (getBestImagesOnly):
+            sortedIndecies.reverse()
+
+        sortedIndeciesBatch = sortedIndecies[:self.batch_size]
+
+        # newBatch = np.array([self.batch_size, self.output_height, self.output_width, self.c_dim])
+
+        selectedImages = np.zeros((self.batch_size, self.output_height, self.output_width, self.c_dim), dtype=np.float32) #tf.stack(newBatch)
+        selectedNoise = np.zeros((self.batch_size, self.z_dim), dtype=np.float32) #tf.stack(newBatch)
+
+
+
+        # np.zeros((len(trY), self.y_dim), dtype=np.float)
+
+        # print("newBatch :", newBatch.shape)
+        # print("Index :", sortedIndeciesBatch[1][0])
+
+        # newBatch[0] = images[int(sortedIndeciesBatch[0])]
+
+        for i in range(0, self.batch_size):
+            # noe[0][i] = images[int(sortedIndeciesBatch[i])]
+            selectedImages[i] = images[int(sortedIndeciesBatch[i])]
+            selectedNoise[i] = eval_z[int(sortedIndeciesBatch[i])]
+
+        print("Done, return images!")
+        # return samples_eval
+        # return tf.stack(newBatch)
+        # return noe
+
+
+
+        # X = ["a", "b", "c", "d", "e", "f", "g", "h", "i"]
+        # Y = [0, 1, 1, 0, 1, 2, 2, 0, 1]
+        #
+        # sorted = [x for (y, x) in sorted(zip(Y, X), key=lambda pair: pair[0])]
+        #
+        # print(sorted)
+
+        return selectedImages, selectedNoise
+
+
 
     def discriminator(self, image, y=None, reuse=False, tempBatchSize=None):
         with tf.variable_scope("discriminator") as scope:
@@ -641,15 +894,22 @@ class DCGAN(object):
 
                 return tf.nn.sigmoid(h3), h3
 
-    def generator(self, z, y=None,reuse=False, tempBatchSize=None):
+    def generator(self, z, y=None,reuse=False, tempBatchSize=None, useBatching=False):
         with tf.variable_scope("generator") as scope:
             if reuse:
                 scope.reuse_variables()
 
             if tempBatchSize == None:
                 tempBatchSize = self.batch_size
+            # elif(self.test and useBatching):
+            #     tempBatchSize = self.evalSize
 
+
+            # if(self.test):
+            # print("askhd akdhakjs dkjahdjkahdkajshdksajdh kjashdjk adasd ")
             if not self.y_dim:
+
+
                 s_h, s_w = self.output_height, self.output_width
                 s_h2, s_w2 = conv_out_size_same(s_h, 2), conv_out_size_same(s_w, 2)
                 s_h4, s_w4 = conv_out_size_same(s_h2, 2), conv_out_size_same(s_w2, 2)
@@ -679,8 +939,62 @@ class DCGAN(object):
                 h4, self.h4_w, self.h4_b = deconv2d(
                     h3, [tempBatchSize, s_h, s_w, self.c_dim], name='g_h4', with_w=True)
 
-                return tf.nn.tanh(h4)
+                # if(self.test and useBatching):
+                #     print("Using batching!!!!!")
+                # return self.batchGenerator(tf.nn.tanh(h4))
+
+                # self.discriminator(tf.nn.tanh(h4), reuse=True)
+
+                # Some tensor we want to print the value of
+
+
+                if(useBatching and False):
+
+                    return self.batchGenerator(tf.nn.tanh(h4))
+                    # # return self.generator(z,reuse=True)
+
+                    # try:
+                    #     return self.batchGenerator()
+                    # except:
+                    #     print("Jeg feila!")
+                    #     return tf.nn.tanh(h4)
+
+                    # return tf.nn.tanh(h4)
+                    # try:
+                    #     test = self.batchGenerator()
+                    #
+                    #     a = tf.constant([1.0, 3.0])
+                    #
+                    #     # Add print operation
+                    #     a = tf.Print(a, [a], message="Jeg greide det faktisk!")
+                    #
+                    #     # Add more elements of the graph using a
+                    #     b = tf.add(a, a).eval()
+                    #     return test
+                    #
+                    # except:
+                    #
+                    #     a = tf.constant([1.0, 3.0])
+                    #
+                    #     # Add print operation
+                    #     a = tf.Print(a, [a], message="Jeg feila! ")
+                    #
+                    #     # Add more elements of the graph using a
+                    #     b = tf.add(a, a).eval()
+                    #
+                    #     test = tf.nn.tanh(h4)
+                    #     return test
+                else:
+
+
+                # return np.ones((self.batch_size, self.output_height, self.output_width, self.c_dim), dtype=np.float32)
+
+                    # return tf.stack(np.zeros((self.batch_size, self.output_height, self.output_width, self.c_dim), dtype=np.float32)) #tf.stack(newBatch)
+                    return tf.nn.tanh(h4)
             else:
+
+
+
                 s_h, s_w = self.output_height, self.output_width
                 s_h2, s_h4 = int(s_h / 2), int(s_h / 4)
                 s_w2, s_w4 = int(s_w / 2), int(s_w / 4)
