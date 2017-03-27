@@ -267,11 +267,15 @@ class DCGAN(object):
         shouldLoadData = False
         useEvalSet = True
         writeLogs = False
-        useImprovedZ = False
+        useImprovedZ = config.improved_z_noise
+        useImproved_z_noise = config.improved_z_noise
+        useStaticZNoise = config.static_z
 
         ## SIMENS LILLE CONFING ##
 
 
+        if(useStaticZNoise):
+            static_z = np.random.uniform(-1, 1, [len(data), self.z_dim]).astype(np.float32)
 
 
         if (useEvalSet):
@@ -292,9 +296,9 @@ class DCGAN(object):
         np.random.shuffle(data)
         print("Shuffling trainingdata")
 
-        d_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
+        d_optim = tf.train.AdamOptimizer(config.learning_rate_D, beta1=config.beta1_D) \
             .minimize(self.d_loss, var_list=self.d_vars)
-        g_optim = tf.train.AdamOptimizer(0.001, beta1=config.beta1) \
+        g_optim = tf.train.AdamOptimizer(config.learning_rate_G, beta1=config.beta1_G) \
             .minimize(self.g_loss, var_list=self.g_vars)
         try:
             tf.global_variables_initializer().run()
@@ -388,12 +392,16 @@ class DCGAN(object):
                     else:
                         batch_images = np.array(batch).astype(np.float32)
 
-                batch_z = np.random.uniform(-1, 1, [config.batch_size, self.z_dim]).astype(np.float32)
-                _, batch_z = self.batchGenerator()
 
 
 
-                if(useImprovedZ):
+                if(useImproved_z_noise):
+                    _, batch_z = self.batchGenerator()
+
+                elif(useStaticZNoise):
+                    batch_z = static_z[idx * config.batch_size:(idx + 1) * config.batch_size]
+
+                elif(useImprovedZ):
 
                     basewidth = 10
 
@@ -415,7 +423,8 @@ class DCGAN(object):
                         batch_z[counter] = pix  # Adds the image to the z-array
 
 
-
+                else:
+                    batch_z = np.random.uniform(-1, 1, [config.batch_size, self.z_dim]).astype(np.float32)
 
 
                 if config.dataset == 'mnist':
@@ -500,7 +509,7 @@ class DCGAN(object):
 
                 if idx <= 100:
                     evalBatches = min(self.evalSize, config.train_size) // config.batch_size
-                    print("evalBatches:", evalBatches)
+                    # print("evalBatches:", evalBatches)
 
                     evalGenerated = []
 
@@ -527,7 +536,7 @@ class DCGAN(object):
                     lastRealAccuracy = self.evalImages(lastRealAccuracy, eval_real, config, realImages=True)
                     lastFakeAccuracy = self.evalImages(lastFakeAccuracy, samples_eval, config, realImages=False)
 
-                if np.mod(counter, 30) == 1 or True:
+                if np.mod(counter, 100) == 1:
 
                     # self.batchGenerator()
 
@@ -640,8 +649,8 @@ class DCGAN(object):
                         #     }
                         # )
                         # print("Scores: ",batchOutput[0][0])
-                        print("batch_labels: ", np.argmax(batch_labels))
-                        print(" - ")
+                        # print("batch_labels: ", np.argmax(batch_labels))
+                        # print(" - ")
                         # print("Scores: ", len(batchOutput))
                         # print(" - ")
 
@@ -817,7 +826,7 @@ class DCGAN(object):
         # print("indeices:",indeices)
 
         sortedIndecies = [x for (y, x) in sorted(zip(scores, indeices), key=lambda pair: pair[0])]
-        print(sortedIndecies)
+        # print(sortedIndecies)
         if (getBestImagesOnly):
             sortedIndecies.reverse()
 
@@ -842,7 +851,7 @@ class DCGAN(object):
             selectedImages[i] = images[int(sortedIndeciesBatch[i])]
             selectedNoise[i] = eval_z[int(sortedIndeciesBatch[i])]
 
-        print("Done, return images!")
+        # print("Done, return images!")
         # return samples_eval
         # return tf.stack(newBatch)
         # return noe
