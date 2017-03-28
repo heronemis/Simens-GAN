@@ -58,9 +58,9 @@ def merge(images, size,scores=None):
     # print(images.shape)
     h, w = images.shape[1], images.shape[2]
     batchSize = images.shape[0]
-    print("h: ", h)
-    print("w: ", w)
-    print("batchSize: ", batchSize)
+    # print("h: ", h)
+    # print("w: ", w)
+    # print("batchSize: ", batchSize)
 
     rho = np.ones((batchSize*2, h, w, 3), dtype=np.float32)
     index = 0

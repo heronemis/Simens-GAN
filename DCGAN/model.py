@@ -9,6 +9,7 @@ from six.moves import xrange
 
 from ops import *
 from utils import *
+from newUtils import *
 
 
 import PIL
@@ -61,7 +62,7 @@ class DCGAN(object):
         self.gfc_dim = gfc_dim
         self.dfc_dim = dfc_dim
 
-        self.evalSize = batch_size * 2
+        self.evalSize = batch_size * 10
 
         self.c_dim = c_dim
 
@@ -267,9 +268,13 @@ class DCGAN(object):
         shouldLoadData = False
         useEvalSet = True
         writeLogs = False
-        useImprovedZ = config.improved_z_noise
+        tournament_selection_noise = config.tournament_selection
         useImproved_z_noise = config.improved_z_noise
         useStaticZNoise = config.static_z
+
+        initCSV(config.sample_dir)
+
+        configString = getAddons(config)
 
         ## SIMENS LILLE CONFING ##
 
@@ -395,13 +400,13 @@ class DCGAN(object):
 
 
 
-                if(useImproved_z_noise):
+                if( tournament_selection_noise):
                     _, batch_z = self.batchGenerator()
 
                 elif(useStaticZNoise):
                     batch_z = static_z[idx * config.batch_size:(idx + 1) * config.batch_size]
 
-                elif(useImprovedZ):
+                elif(useImproved_z_noise):
 
                     basewidth = 10
 
@@ -508,11 +513,6 @@ class DCGAN(object):
 
 
                 if idx <= 100:
-                    evalBatches = min(self.evalSize, config.train_size) // config.batch_size
-                    # print("evalBatches:", evalBatches)
-
-                    evalGenerated = []
-
                     eval_z = np.random.uniform(-1, 1, [self.evalSize, self.z_dim]).astype(np.float32)
                     samples_eval = self.sess.run(
                         [self.generatorEval ],
@@ -521,22 +521,14 @@ class DCGAN(object):
                         }
                     )
 
-                    # evalGenerated = samples_eval[0
-
-                    # print("Done. Size: ", len(samples_eval))
-                    # print("Done. Size[0]: ", len(samples_eval[0]))
-                    # print("Done. Size[0][0]: ", len(samples_eval[0][0]))
-                    # print("Done. Size[0][0]: ", len(samples_eval[0][0][0]))
-                    # print("Done. Size[0][0]: ", len(samples_eval[0][0][0][0]))
-
-
-
                     samples_eval = np.asarray(samples_eval[0])
 
                     lastRealAccuracy = self.evalImages(lastRealAccuracy, eval_real, config, realImages=True)
                     lastFakeAccuracy = self.evalImages(lastFakeAccuracy, samples_eval, config, realImages=False)
 
-                if np.mod(counter, 100) == 1:
+                    writeAccuracyToFile(config.sample_dir,[lastRealAccuracy/100.0,lastFakeAccuracy/100.0, (lastRealAccuracy + lastFakeAccuracy)/200.00 ])
+
+                if np.mod(counter, 100) == 1 or True:
 
                     # self.batchGenerator()
 
@@ -670,15 +662,34 @@ class DCGAN(object):
                         # return
                     else:
 
-                        eval_z = np.random.uniform(-1, 1, [64, self.z_dim]).astype(np.float32)
-                        samples, eval_z = self.batchGenerator()
-                        # samples, d_loss, g_loss = self.sess.run(
-                        #     [self.sampler, self.d_loss, self.g_loss],
-                        #     feed_dict={
-                        #         self.z: sample_z,
-                        #         self.inputs: sample_inputs,
-                        #     },
-                        # )
+                        samples = None
+
+                        if (tournament_selection_noise):
+                            samples, sample_z = self.batchGenerator()
+
+                        elif (useStaticZNoise):
+                            sample_z = static_z[idx * config.batch_size:(idx + 1) * config.batch_size]
+
+                        elif (useImproved_z_noise):
+                            sample_z = batch_z
+
+
+                        else:
+                            sample_z = np.random.uniform(-1, 1, [64, self.z_dim]).astype(np.float32)
+
+
+                        #
+                        # eval_z = np.random.uniform(-1, 1, [64, self.z_dim]).astype(np.float32)
+                        # samples, eval_z = self.batchGenerator()
+
+                        if(samples is None):
+                            samples, d_loss, g_loss = self.sess.run(
+                                [self.sampler, self.d_loss, self.g_loss],
+                                feed_dict={
+                                    self.z: sample_z,
+                                    self.inputs: sample_inputs,
+                                },
+                            )
 
                         # samples = self.sess.run(
                         #     [self.generatorEval],
@@ -725,7 +736,7 @@ class DCGAN(object):
                         #     },
                         # )
                         save_images(samples, [8, 8],
-                                    './{}/train_{:02d}_{:04d}.png'.format(config.sample_dir, epoch, idx), batchOutput[0][0])
+                                    './{}/{}_{:02d}_{:04d}{}.png'.format(config.sample_dir,config.dataset, epoch, idx,configString), batchOutput[0][0]) #
                         # print("[Sample] d_loss: %.8f, g_loss: %.8f" % (d_loss, g_loss))
                         # except:
                         #     print("one pic error!...")
