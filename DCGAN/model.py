@@ -397,8 +397,7 @@ class DCGAN(object):
                     else:
                         batch_images = np.array(batch).astype(np.float32)
 
-
-
+                batch_z = np.random.uniform(-1, 1, [config.batch_size, self.z_dim]).astype(np.float32)
 
                 if( tournament_selection_noise):
                     _, batch_z = self.batchGenerator()
@@ -428,8 +427,8 @@ class DCGAN(object):
                         batch_z[counter] = pix  # Adds the image to the z-array
 
 
-                else:
-                    batch_z = np.random.uniform(-1, 1, [config.batch_size, self.z_dim]).astype(np.float32)
+                # else:
+                #     batch_z = np.random.uniform(-1, 1, [config.batch_size, self.z_dim]).astype(np.float32)
 
 
                 if config.dataset == 'mnist':
@@ -512,7 +511,7 @@ class DCGAN(object):
                 # print("Creating eval data")
 
 
-                if idx <= 100:
+                if idx <= 100 or True:
                     eval_z = np.random.uniform(-1, 1, [self.evalSize, self.z_dim]).astype(np.float32)
                     samples_eval = self.sess.run(
                         [self.generatorEval ],
@@ -528,7 +527,7 @@ class DCGAN(object):
 
                     writeAccuracyToFile(config.sample_dir,[lastRealAccuracy/100.0,lastFakeAccuracy/100.0, (lastRealAccuracy + lastFakeAccuracy)/200.00 ])
 
-                if np.mod(counter, 100) == 1 or True:
+                if np.mod(counter, 100) == 1 :
 
                     # self.batchGenerator()
 

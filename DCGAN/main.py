@@ -13,12 +13,12 @@ import tensorflow as tf
 
 flags = tf.app.flags
 flags.DEFINE_integer("epoch", 25, "Epoch to train [25]")
-flags.DEFINE_float("learning_rate_D", 0.0008, "Learning rate of Discriminator for adam [0.0002]")
-flags.DEFINE_float("learning_rate_G", 0.0008, "Learning rate of Generator for adam [0.0002]")
+flags.DEFINE_float("learning_rate_D", 0.00006, "Learning rate of Discriminator for adam [0.0002]")
+flags.DEFINE_float("learning_rate_G", 0.00006, "Learning rate of Generator for adam [0.0002]")
 flags.DEFINE_float("beta1_D", 0.01, "Momentum term of Discriminator for adam [0.5]")
 flags.DEFINE_float("beta1_G", 0.01, "Momentum term of Generator for adam [0.5]")
 flags.DEFINE_integer("train_size", np.inf, "The size of train images [np.inf]")
-flags.DEFINE_integer("batch_size", 64, "The size of batch images [64]")
+flags.DEFINE_integer("batch_size", 128, "The size of batch images [64]")
 flags.DEFINE_integer("input_height", 108, "The size of image to use (will be center cropped). [108]")
 
 flags.DEFINE_integer("input_width", None,
@@ -38,8 +38,8 @@ flags.DEFINE_boolean("visualize", False, "True for visualizing, False for nothin
 
 
 
-flags.DEFINE_boolean("improved_z_noise", False, "Use Z noise based on training images [False]")
-flags.DEFINE_boolean("static_z", True, "Use the Z noise during each epoch of training[False]")
+flags.DEFINE_boolean("improved_z_noise", True, "Use Z noise based on training images [False]")
+flags.DEFINE_boolean("static_z", False, "Use the Z noise during each epoch of training[False]")
 flags.DEFINE_boolean("minibatch_discrimination", False, "Use of Minibatch Discrimination [False]")
 flags.DEFINE_integer("tournament_selection", 0, "0 is turned off. 1 will select the best images from a large selection while 2 will select the worst images. [0,1,2]")
 
