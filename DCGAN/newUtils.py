@@ -105,7 +105,8 @@ def createFolderName(FLAGS):
     print(folderName)
 
     # if(len(addons) > 0):
-    folderName += getAddons(FLAGS)
+    addonString = getAddons(FLAGS)
+    folderName += addonString
 
     if not os.path.exists(FLAGS.sample_dir):
         os.makedirs(FLAGS.sample_dir)
@@ -121,6 +122,7 @@ def createFolderName(FLAGS):
         os.makedirs(currentFolder)
 
     FLAGS.sample_dir = currentFolder
+    FLAGS.checkpoint_dir = FLAGS.checkpoint_dir + "/" + dataset + addonString
     return FLAGS
 
 
