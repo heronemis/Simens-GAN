@@ -62,7 +62,7 @@ class DCGAN(object):
         self.gfc_dim = gfc_dim
         self.dfc_dim = dfc_dim
 
-        self.evalSize = batch_size * 10
+        self.evalSize = batch_size
 
         self.c_dim = c_dim
 
@@ -239,18 +239,18 @@ class DCGAN(object):
                         correct += 1
                         # print("     - correct!")
 
-        percentage = ((float(correct) / float(self.evalSize)) * 100)
-
-        deri = ""
-        if (percentage > lastAccuracy):
-            deri = "++"
-        elif (percentage < lastAccuracy):
-            deri = "--"
-
-        if (realImages):
-            print("Accuracy(REAL):", deri + str(percentage) + "% (", correct, "samples )")
-        else:
-            print("Accuracy(FAKE):", deri + str(percentage) + "% (", correct, "samples )")
+        # percentage = ((float(correct) / float(self.evalSize)) * 100)
+        #
+        # deri = ""
+        # if (percentage > lastAccuracy):
+        #     deri = "++"
+        # elif (percentage < lastAccuracy):
+        #     deri = "--"
+        #
+        # if (realImages):
+        #     print("Accuracy(REAL):", deri + str(percentage) + "% (", correct, "samples )")
+        # else:
+        #     print("Accuracy(FAKE):", deri + str(percentage) + "% (", correct, "samples )")
         return percentage
 
     def train(self, config):
@@ -298,8 +298,9 @@ class DCGAN(object):
             else:
                 eval_real = np.array(evalSamplesReal).astype(np.float32)
 
-        np.random.shuffle(data)
-        print("Shuffling trainingdata")
+        if(config.shuffle_data):
+            np.random.shuffle(data)
+            print("Shuffling trainingdata")
 
         d_optim = tf.train.AdamOptimizer(config.learning_rate_D, beta1=config.beta1_D) \
             .minimize(self.d_loss, var_list=self.d_vars)
@@ -511,7 +512,8 @@ class DCGAN(object):
                 # print("Creating eval data")
 
 
-                if idx <= 100 or True:
+                # if idx <= 100 or True:
+                if np.mod(counter, 50) == 1:
                     eval_z = np.random.uniform(-1, 1, [self.evalSize, self.z_dim]).astype(np.float32)
                     samples_eval = self.sess.run(
                         [self.generatorEval ],

@@ -8,7 +8,10 @@ sample_dir = 'samples'
 currentSampleDir = ''
 dataset = 'mnist'
 
+commonName = ""
 
+combinedAccuarcy = []
+n = 5
 
 
 def localize_floats(row):
@@ -19,9 +22,38 @@ def localize_floats(row):
 
 
 def initCSV(sampleDir):
-    with open(sampleDir+'/accuracy.csv', "w") as csvfile:
+    global commonName
+    with open(sampleDir+"/accuracy - " + commonName + ".csv", "w") as csvfile:
         writer = csv.writer(csvfile, delimiter=';', quoting=csv.QUOTE_MINIMAL, dialect='excel-tab')
-        writer.writerow(["Real classified as real(%)","Fake classified as fake(%)","Combined"])
+        writer.writerow(["Real classified as real(%)","Fake classified as fake(%)","Combined","Avg combined(last " + str(n) + ")","Max combined(last " + str(n) + ")"])
+
+
+def createConfingCSV(sampleDir,FLAGS):
+
+    with open(sampleDir + "/config - " + commonName + ".csv", "w") as csvfile:
+        writer = csv.writer(csvfile, delimiter=';', quoting=csv.QUOTE_MINIMAL, dialect='excel-tab')
+        writer.writerow(["Setting", "Value"])
+
+        for c in FLAGS.__flags:
+            # print(c, "-",FLAGS.__flags[c])
+            writer.writerow([c, FLAGS.__flags[c]])
+
+
+def addStats(accuracy):
+    global combinedAccuarcy
+    combinedAccuarcy.append(accuracy[2])
+    print("Current Accuarcy:",accuracy[2]*100,"%" )
+
+
+    lastNRestuls = (combinedAccuarcy[-n:])
+    avgScore = sum(lastNRestuls) / float(len(lastNRestuls))
+    maxScore = max(lastNRestuls)
+
+    accuracy.append(avgScore)
+    accuracy.append(maxScore)
+
+    return accuracy
+
 
 
 def writeAccuracyToFile(sampleDir,accuracy):
@@ -45,13 +77,15 @@ def writeAccuracyToFile(sampleDir,accuracy):
     #     writer = csv.writer(csvfile, delimiter=';', quoting=csv.QUOTE_MINIMAL, dialect='excel-tab')
     #     writer.writerow(["Real(%)","Fake(%)"])
 
-    with open(sampleDir+'/accuracy.csv', 'a') as csvfile:
+    updatedAcc = addStats(accuracy)
+
+    with open(sampleDir+"/accuracy - " + commonName + ".csv", 'a') as csvfile:
         writer = csv.writer(csvfile, delimiter=';', quoting=csv.QUOTE_MINIMAL, dialect='excel-tab')
         # for i in range(0, len(fList), 2):
         # mylist = [  random.uniform(0.000000, 1.0000000), random.uniform(0.00000000, 1.000000)  ]
-        writer.writerow(localize_floats(accuracy))
+        writer.writerow(localize_floats(updatedAcc))
 
-
+    return updatedAcc[3]
 
     # with open('test.csv', "w") as output:
     #     writer = csv.writer(output, lineterminator='\n', delimiter=",")
@@ -89,6 +123,7 @@ def getAddons(FLAGS):
 
 
 def createFolderName(FLAGS):
+    global commonName
     sample_dir = FLAGS.sample_dir
     dataset = FLAGS.dataset
 
@@ -122,9 +157,14 @@ def createFolderName(FLAGS):
         os.makedirs(currentFolder)
 
     FLAGS.sample_dir = currentFolder
+    commonName = folderName
     FLAGS.checkpoint_dir = FLAGS.checkpoint_dir + "/" + dataset + addonString
     return FLAGS
 
+
+
+hei = [1,2,3,4,5,6,7,8,9,10,11,12,13,14]
+print(hei[-5:])
 
 
 # writeAccuracyToFile()

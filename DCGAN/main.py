@@ -18,7 +18,7 @@ flags.DEFINE_float("learning_rate_G", 0.00006, "Learning rate of Generator for a
 flags.DEFINE_float("beta1_D", 0.01, "Momentum term of Discriminator for adam [0.5]")
 flags.DEFINE_float("beta1_G", 0.01, "Momentum term of Generator for adam [0.5]")
 flags.DEFINE_integer("train_size", np.inf, "The size of train images [np.inf]")
-flags.DEFINE_integer("batch_size", 128, "The size of batch images [64]")
+flags.DEFINE_integer("batch_size", 64, "The size of batch images [64]")
 flags.DEFINE_integer("input_height", 108, "The size of image to use (will be center cropped). [108]")
 
 flags.DEFINE_integer("input_width", None,
@@ -38,6 +38,7 @@ flags.DEFINE_boolean("visualize", False, "True for visualizing, False for nothin
 
 
 
+flags.DEFINE_boolean("shuffle_data", False, "Shuffle training data before training [False]")
 flags.DEFINE_boolean("improved_z_noise", True, "Use Z noise based on training images [False]")
 flags.DEFINE_boolean("static_z", False, "Use the Z noise during each epoch of training[False]")
 flags.DEFINE_boolean("minibatch_discrimination", False, "Use of Minibatch Discrimination [False]")
@@ -48,7 +49,10 @@ FLAGS = flags.FLAGS
 
 
 def main(_):
+
+
     pp.pprint(flags.FLAGS.__flags)
+    # pp.pprint(flags.FLAGS.__parse)
 
     if FLAGS.input_width is None:
         FLAGS.input_width = FLAGS.input_height
@@ -56,7 +60,14 @@ def main(_):
         FLAGS.output_width = FLAGS.output_height
 
     newUtils.createFolderName(FLAGS)
-    print(FLAGS.sample_dir)
+    # print(FLAGS.sample_dir)
+
+    newUtils.createConfingCSV(FLAGS.sample_dir,FLAGS)
+    # return
+
+    pp.pprint(flags.FLAGS.__flags)
+
+    # print(FLAGS.sample_dir.default_value)
 
     # if not os.path.exists(path):
     #     print("path", path, "not found. Creating new folder")
