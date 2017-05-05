@@ -117,7 +117,7 @@ def getAddons(FLAGS):
         addons.append("tournament_selection_worst")
 
     if (len(addons) > 0):
-        return " - " + str(addons).replace("'", "")
+        return "-" + str(addons).replace("'", "").replace(",", "+").replace("]", "").replace("[", "").replace(" ", "")
     else:
         return ""
 
@@ -163,8 +163,8 @@ def createFolderName(FLAGS):
 
 
 
-hei = [1,2,3,4,5,6,7,8,9,10,11,12,13,14]
-print(hei[-5:])
+# hei = [1,2,3,4,5,6,7,8,9,10,11,12,13,14]
+# print(hei[-5:])
 
 
 # writeAccuracyToFile()

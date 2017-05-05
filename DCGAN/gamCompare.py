@@ -2,16 +2,24 @@ import os
 import scipy.misc
 import numpy as np
 import time
+from glob import glob
 from datetime import datetime
 
 from model import DCGAN
 from utils import pp, visualize, to_json
 
+
+from ops import *
+from utils import *
 import newUtils
 
 import tensorflow as tf
 
+#  sudo python3 main.py --dataset celebA --input_height=108 --is_train --is_crop True
+#  sudo python3 gamCompare.py --dataset celebA --input_height=108  --is_crop True
+
 flags = tf.app.flags
+flags2 = tf.app.flags
 flags.DEFINE_integer("epoch", 25, "Epoch to train [25]")
 flags.DEFINE_float("learning_rate_D", 0.00006, "Learning rate of Discriminator for adam [0.0002]")
 flags.DEFINE_float("learning_rate_G", 0.00006, "Learning rate of Generator for adam [0.0002]")
@@ -38,26 +46,52 @@ flags.DEFINE_boolean("visualize", False, "True for visualizing, False for nothin
 
 
 
-flags.DEFINE_boolean("shuffle_data", True, "Shuffle training data before training [False]")
-flags.DEFINE_boolean("improved_z_noise", True, "Use Z noise based on training images [False]")
+flags.DEFINE_boolean("shuffle_data", False, "Shuffle training data before training [False]")
+flags.DEFINE_boolean("improved_z_noise", False, "Use Z noise based on training images [False]")
 flags.DEFINE_boolean("static_z", False, "Use the Z noise during each epoch of training[False]")
-flags.DEFINE_boolean("minibatch_discrimination", True, "Use of Minibatch Discrimination [False]")
+flags.DEFINE_boolean("minibatch_discrimination", False, "Use of Minibatch Discrimination [False]")
 flags.DEFINE_integer("tournament_selection", 0, "0 is turned off. 1 will select the best images from a large selection while 2 will select the worst images. [0,1,2]")
+
+flags.DEFINE_string("gan1", "errorMissingGan1Checkpoint", "Checkpoint folder for GAN 1")
+flags.DEFINE_string("gan2", "errorMissingGan2Checkpoint", "Checkpoint folder for GAN 2")
 
 
 FLAGS = flags.FLAGS
 
 
+
+
+
 def main(_):
-
-
-    pp.pprint(flags.FLAGS.__flags)
-    # pp.pprint(flags.FLAGS.__parse)
 
     if FLAGS.input_width is None:
         FLAGS.input_width = FLAGS.input_height
     if FLAGS.output_width is None:
         FLAGS.output_width = FLAGS.output_height
+
+    testDatasetSize = 2*FLAGS.batch_size
+    sampleDatasetSize = 2*FLAGS.batch_size
+    data = glob(os.path.join("./data", FLAGS.dataset, FLAGS.input_fname_pattern))
+    batch_files = data[:testDatasetSize]
+
+    testDataset = [
+        get_image(batch_file,
+                  input_height=FLAGS.input_height,
+                  input_width=FLAGS.input_width,
+                  resize_height=FLAGS.output_height,
+                  resize_width=FLAGS.output_width,
+                  is_crop=FLAGS.is_crop,
+                  is_grayscale=False) for batch_file in batch_files]
+
+
+    print("Loaded dataset",FLAGS.dataset,"Actaull size:",len(data),". Test size:",len(testDataset))
+
+
+
+    # pp.pprint(flags.FLAGS.__flags)
+    # pp.pprint(flags.FLAGS.__parse)
+
+
 
     newUtils.createFolderName(FLAGS)
     # print(FLAGS.sample_dir)
@@ -78,9 +112,14 @@ def main(_):
     if not os.path.exists(FLAGS.sample_dir):
         os.makedirs(FLAGS.sample_dir)
 
-    # gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.333)
+
+
+
     run_config = tf.ConfigProto()
     run_config.gpu_options.allow_growth = True
+
+
+    print("Starting to load dcgan")
 
     with tf.Session(config=run_config) as sess:
         if FLAGS.dataset == 'mnist':
@@ -113,23 +152,72 @@ def main(_):
                 checkpoint_dir=FLAGS.checkpoint_dir,
                 sample_dir=FLAGS.sample_dir)
 
-        if FLAGS.is_train:
-            dcgan.train(FLAGS)
-        else:
-            if not dcgan.load(FLAGS.checkpoint_dir):
-                raise Exception("[!] Train a model first, then run test mode")
+
+        print(" ")
+        print(" ")
+        print("GAN 1")
+        print(" ")
+        print(" ")
+
+        print("Loading checkpoint at: ",FLAGS.gan1)
+        if not dcgan.load(FLAGS.gan1):
+            raise Exception("[!] Train a model first, then run test mode")
+        testScoreGAN_1 = dcgan.evalImages(testDataset,FLAGS,True)
+        samplesGAN_1 = dcgan.getGeneratorSamples()
+        dcgan.evalImages(samplesGAN_1, FLAGS, False)
 
 
-                # to_json("./web/js/layers.js", [dcgan.h0_w, dcgan.h0_b, dcgan.g_bn0],
-                #                 [dcgan.h1_w, dcgan.h1_b, dcgan.g_bn1],
-                #                 [dcgan.h2_w, dcgan.h2_b, dcgan.g_bn2],
-                #                 [dcgan.h3_w, dcgan.h3_b, dcgan.g_bn3],
-                #                 [dcgan.h4_w, dcgan.h4_b, None])
+        print(" ")
+        print(" ")
+        print("GAN 2")
+        print(" ")
+        print(" ")
 
-                # Below is codes for visualization
-                # OPTION = 1
-                # visualize(sess, dcgan, FLAGS, OPTION)
 
+        print("Loading checkpoint at: ",FLAGS.gan2)
+        if not dcgan.load(FLAGS.gan2):
+            raise Exception("[!] Train a model first, then run test mode")
+        testScoreGAN_2 = dcgan.evalImages(testDataset,FLAGS,True)
+        samplesGAN_2 = dcgan.getGeneratorSamples()
+
+        sampleScoreGAN_2 = dcgan.evalImages(samplesGAN_1, FLAGS, False)
+
+        testratio = float(testScoreGAN_1) / float(testScoreGAN_2)
+        print("testRatio = ",float(testScoreGAN_1) ," / ", float(testScoreGAN_2), " = ",  testratio )
+
+
+        print(" ")
+        print(" ")
+        print("GAN 1")
+        print(" ")
+        print(" ")
+
+        print("Loading checkpoint at: ",FLAGS.gan1)
+        if not dcgan.load(FLAGS.gan1):
+            raise Exception("[!] Train a model first, then run test mode")
+
+        sampleScoreGAN_1 = dcgan.evalImages(samplesGAN_2,FLAGS,False)
+
+        sampleRatio = float(sampleScoreGAN_1) / float(sampleScoreGAN_2)
+        print("sampleRatio = ", float(sampleScoreGAN_1), " / ", float(sampleScoreGAN_2), " = ", sampleRatio)
+
+        # print("Loading checkpoint at: ", FLAGS.gan2)
+        # if not dcgan.load(FLAGS.checkpoint_dir):
+        #     raise Exception("[!] Train a model first, then run test mode")
+        #
+        # dcgan.getGeneratorSamples()
+        #
+        # print("Loading checkpoint at: ",FLAGS.gan1)
+        # if not dcgan.load(FLAGS.gan1):
+        #     raise Exception("[!] Train a model first, then run test mode")
+        #
+        # dcgan.getGeneratorSamples()
+        #
+        # print("Loading checkpoint at: ", FLAGS.gan2)
+        # if not dcgan.load(FLAGS.checkpoint_dir):
+        #     raise Exception("[!] Train a model first, then run test mode")
+        #
+        # dcgan.getGeneratorSamples()
 
 if __name__ == '__main__':
     tf.app.run()

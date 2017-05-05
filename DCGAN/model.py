@@ -218,7 +218,8 @@ class DCGAN(object):
 
         self.saver = tf.train.Saver()
 
-    def evalImages(self, lastAccuracy, evalDataset, config, realImages=True):
+    # def evalImages(self, lastAccuracy, evalDataset, config, realImages=True):
+    def evalImages(self, evalDataset, config, realImages=True):
 
         batch_idxs = min(len(evalDataset), config.train_size) // config.batch_size
 
@@ -239,18 +240,18 @@ class DCGAN(object):
                         correct += 1
                         # print("     - correct!")
 
-        # percentage = ((float(correct) / float(self.evalSize)) * 100)
+        percentage = ((float(correct) / float(len(evalDataset))) * 100)
         #
-        # deri = ""
+        deri = ""
         # if (percentage > lastAccuracy):
         #     deri = "++"
         # elif (percentage < lastAccuracy):
         #     deri = "--"
         #
-        # if (realImages):
-        #     print("Accuracy(REAL):", deri + str(percentage) + "% (", correct, "samples )")
-        # else:
-        #     print("Accuracy(FAKE):", deri + str(percentage) + "% (", correct, "samples )")
+        if (realImages):
+            print("Accuracy(REAL):", deri + str(percentage) + "% (", correct, "samples )")
+        else:
+            print("Accuracy(FAKE):", deri + str(percentage) + "% (", correct, "samples )")
         return percentage
 
     def train(self, config):
@@ -265,7 +266,7 @@ class DCGAN(object):
 
         ## SIMENS LILLE CONFING ##
         self.train_size = config.train_size
-        shouldLoadData = False
+        shouldLoadData = True
         useEvalSet = True
         writeLogs = False
         tournament_selection_noise = config.tournament_selection
@@ -443,7 +444,7 @@ class DCGAN(object):
                     if (writeLogs):
                         self.writer.add_summary(summary_str, counter)
 
-                    if (lastRealAccuracy > 70 and False):
+                    if (lastRealAccuracy > 70 or True):
                         # Update G network
                         _, summary_str = self.sess.run([g_optim, self.g_sum],
                                                        feed_dict={
@@ -513,7 +514,7 @@ class DCGAN(object):
 
 
                 # if idx <= 100 or True:
-                if np.mod(counter, 50) == 1:
+                if np.mod(counter, 50) == 1 and False:
                     eval_z = np.random.uniform(-1, 1, [self.evalSize, self.z_dim]).astype(np.float32)
                     samples_eval = self.sess.run(
                         [self.generatorEval ],
@@ -742,9 +743,46 @@ class DCGAN(object):
                         # except:
                         #     print("one pic error!...")
 
-                if np.mod(counter, 500) == 2:
+                if np.mod(counter, 100) == 1:
                     self.save(config.checkpoint_dir, counter)
 
+
+
+
+
+    def getGeneratorSamples(self):
+
+        sampleSize = 200
+        print("Generating", sampleSize * self.batch_size, "images for evaluation with GAM")
+
+        selectedImages = np.zeros((sampleSize*self.batch_size, self.output_height, self.output_width, self.c_dim), dtype=np.float32) #tf.stack(newBatch)
+        # selectedNoise = np.zeros((self.batch_size, self.z_dim), dtype=np.float32) #tf.stack(newBatch)
+
+        for b in range(0,sampleSize):
+
+            eval_z = np.random.uniform(-1, 1, [self.evalSize, self.z_dim]).astype(np.float32)
+
+            samples_eval = self.sess.run(
+                [self.generatorOuput],
+                feed_dict={
+                    self.z: eval_z,
+                }
+            )
+
+            images = np.asarray(samples_eval[0])
+
+            for i in range(0, len(samples_eval)):
+                # noe[0][i] = images[int(sortedIndeciesBatch[i])]
+                selectedImages[b*self.batch_size + i] = images[i]
+
+            if(b == sampleSize/2):
+                print(" - Halfway done")
+
+        print("Sample generation done")
+        # print("Size: ", len(selectedImages))
+        # print("Size[0]: ", len(selectedImages[0]))
+        # print("Size[0][0]: ", len(selectedImages[0][0]))
+        return selectedImages
 
 
     def batchGenerator(self,getBestImagesOnly=True):
