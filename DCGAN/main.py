@@ -38,10 +38,10 @@ flags.DEFINE_boolean("visualize", False, "True for visualizing, False for nothin
 
 
 
-flags.DEFINE_boolean("shuffle_data", True, "Shuffle training data before training [False]")
+flags.DEFINE_boolean("shuffle_data", False, "Shuffle training data before training [False]")
 flags.DEFINE_boolean("improved_z_noise", True, "Use Z noise based on training images [False]")
 flags.DEFINE_boolean("static_z", False, "Use the Z noise during each epoch of training[False]")
-flags.DEFINE_boolean("minibatch_discrimination", True, "Use of Minibatch Discrimination [False]")
+flags.DEFINE_boolean("minibatch_discrimination", False, "Use of Minibatch Discrimination [False]")
 flags.DEFINE_integer("tournament_selection", 0, "0 is turned off. 1 will select the best images from a large selection while 2 will select the worst images. [0,1,2]")
 
 

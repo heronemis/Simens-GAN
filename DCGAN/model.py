@@ -410,7 +410,7 @@ class DCGAN(object):
                 elif(useImproved_z_noise):
 
                     basewidth = 10
-
+                    indexCounter = 0
                     for imgName in batch_files:
                         img = Image.open(imgName)
                         # img = img.convert('L')  # convert image to greyscale
@@ -426,7 +426,8 @@ class DCGAN(object):
                         pix = (pix - 128) / 128  # Scales the pixels to be between -1 and 1
                         pix = pix.flatten()  # flattens the image to a single array of lenght of 100
 
-                        batch_z[counter] = pix  # Adds the image to the z-array
+                        batch_z[indexCounter] = pix  # Adds the image to the z-array
+                        indexCounter += 1
 
 
                 # else:
@@ -743,7 +744,8 @@ class DCGAN(object):
                         # except:
                         #     print("one pic error!...")
 
-                if np.mod(counter, 100) == 1:
+                if np.mod(counter, 2000) == 1:
+                    print("Saving checkpoint")
                     self.save(config.checkpoint_dir, counter)
 
 
@@ -752,7 +754,7 @@ class DCGAN(object):
 
     def getGeneratorSamples(self):
 
-        sampleSize = 200
+        sampleSize = 2000
         print("Generating", sampleSize * self.batch_size, "images for evaluation with GAM")
 
         selectedImages = np.zeros((sampleSize*self.batch_size, self.output_height, self.output_width, self.c_dim), dtype=np.float32) #tf.stack(newBatch)

@@ -69,10 +69,10 @@ def main(_):
     if FLAGS.output_width is None:
         FLAGS.output_width = FLAGS.output_height
 
-    testDatasetSize = 2*FLAGS.batch_size
+    testDatasetSize = 200*FLAGS.batch_size
     sampleDatasetSize = 2*FLAGS.batch_size
     data = glob(os.path.join("./data", FLAGS.dataset, FLAGS.input_fname_pattern))
-    batch_files = data[:testDatasetSize]
+    batch_files = data[:min(len(data), testDatasetSize) ]
 
     testDataset = [
         get_image(batch_file,
