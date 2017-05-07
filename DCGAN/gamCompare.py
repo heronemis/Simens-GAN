@@ -69,10 +69,12 @@ def main(_):
     if FLAGS.output_width is None:
         FLAGS.output_width = FLAGS.output_height
 
-    testDatasetSize = 200*FLAGS.batch_size
+    testDatasetSize = 20*FLAGS.batch_size
     sampleDatasetSize = 2*FLAGS.batch_size
     data = glob(os.path.join("./data", FLAGS.dataset, FLAGS.input_fname_pattern))
+    # testDatasetSize =  len(data)
     batch_files = data[:min(len(data), testDatasetSize) ]
+    sample_files = data[:int(len(data)/100) ]
 
     testDataset = [
         get_image(batch_file,
@@ -163,7 +165,7 @@ def main(_):
         if not dcgan.load(FLAGS.gan1):
             raise Exception("[!] Train a model first, then run test mode")
         testScoreGAN_1 = dcgan.evalImages(testDataset,FLAGS,True)
-        samplesGAN_1 = dcgan.getGeneratorSamples()
+        samplesGAN_1 = dcgan.getGeneratorSamples(dataset=sample_files,improved_z_noise=True)
         dcgan.evalImages(samplesGAN_1, FLAGS, False)
 
 
@@ -178,9 +180,10 @@ def main(_):
         if not dcgan.load(FLAGS.gan2):
             raise Exception("[!] Train a model first, then run test mode")
         testScoreGAN_2 = dcgan.evalImages(testDataset,FLAGS,True)
-        samplesGAN_2 = dcgan.getGeneratorSamples()
-
         sampleScoreGAN_2 = dcgan.evalImages(samplesGAN_1, FLAGS, False)
+        samplesGAN_2 = dcgan.getGeneratorSamples(dataset=sample_files)
+
+
 
         testratio = float(testScoreGAN_1) / float(testScoreGAN_2)
         print("testRatio = ",float(testScoreGAN_1) ," / ", float(testScoreGAN_2), " = ",  testratio )

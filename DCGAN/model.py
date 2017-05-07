@@ -752,17 +752,46 @@ class DCGAN(object):
 
 
 
-    def getGeneratorSamples(self):
+    def getGeneratorSamples(self,dataset=None,improved_z_noise=False):
 
-        sampleSize = 2000
+        sampleSize = 3000
+        # if (dataset != None):
+        #     sampleSize = len(dataset)
+
         print("Generating", sampleSize * self.batch_size, "images for evaluation with GAM")
 
         selectedImages = np.zeros((sampleSize*self.batch_size, self.output_height, self.output_width, self.c_dim), dtype=np.float32) #tf.stack(newBatch)
         # selectedNoise = np.zeros((self.batch_size, self.z_dim), dtype=np.float32) #tf.stack(newBatch)
 
+        if (dataset != None and improved_z_noise):
+            print("Current GAN is using improved_z_noise")
+
         for b in range(0,sampleSize):
 
-            eval_z = np.random.uniform(-1, 1, [self.evalSize, self.z_dim]).astype(np.float32)
+
+            eval_z = np.random.uniform(-1, 1, [self.batch_size, self.z_dim]).astype(np.float32)
+
+            if (dataset != None and improved_z_noise):
+                batch_files = dataset[b * self.batch_size:(b + 1) * self.batch_size]
+                basewidth = 10
+                indexCounter = 0
+                for imgName in batch_files:
+                    img = Image.open(imgName)
+                    # img = img.convert('L')  # convert image to greyscale
+                    wpercent = (basewidth / float(img.size[0]))
+                    hsize = int((float(img.size[1]) * float(wpercent)))
+                    img = img.resize((basewidth, basewidth), PIL.Image.ANTIALIAS)  # resizes the image to 10x10
+                    img = img.convert('L')  # convert image to black and white
+                    # name = 'processedImages/' + str(counter) + '.jpeg'
+                    # img = ImageOps.invert(img)
+                    # img.save(name)
+
+                    pix = np.array(img, np.float32)
+                    pix = (pix - 128) / 128  # Scales the pixels to be between -1 and 1
+                    pix = pix.flatten()  # flattens the image to a single array of lenght of 100
+
+                    eval_z[indexCounter] = pix  # Adds the image to the z-array
+                    indexCounter += 1
 
             samples_eval = self.sess.run(
                 [self.generatorOuput],
