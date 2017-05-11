@@ -317,7 +317,7 @@ class DCGAN(object):
         shouldLoadData = True
         useEvalSet = True
         writeLogs = False
-        tournament_selection_noise = config.tournament_selection == 1
+        tournament_selection_noise = config.tournament_selection > 0
         useImproved_z_noise = config.improved_z_noise
         useStaticZNoise = config.static_z
 
@@ -456,7 +456,11 @@ class DCGAN(object):
                 batch_z = np.random.uniform(-1, 1, [config.batch_size, self.z_dim]).astype(np.float32)
 
                 if( tournament_selection_noise):
-                    _, batch_z = self.batchGenerator()
+
+
+
+
+                    _, batch_z = self.batchGenerator(config.tournament_selection)
 
                 elif(useStaticZNoise):
                     batch_z = static_z[idx * config.batch_size:(idx + 1) * config.batch_size]
@@ -726,7 +730,7 @@ class DCGAN(object):
 
                         if (tournament_selection_noise):
                             getBestImagesOnly = config.tournament_selection == 1
-                            samples, sample_z = self.batchGenerator(getBestImagesOnly=getBestImagesOnly)
+                            samples, sample_z = self.batchGenerator(config.tournament_selection)
 
                         elif (useStaticZNoise):
                             sample_z = static_z[idx * config.batch_size:(idx + 1) * config.batch_size]
@@ -874,7 +878,21 @@ class DCGAN(object):
         return selectedImages
 
 
-    def batchGenerator(self,getBestImagesOnly=True):
+    def batchGenerator(self,tournament_selection):
+
+
+        if(tournament_selection == 1):
+            getBestImagesOnly = True
+            mixed = False
+        elif (tournament_selection == 2):
+            getBestImagesOnly = False
+            mixed = False
+        else:
+            getBestImagesOnly = False
+            mixed = True
+
+
+
 
         # eval_z = np.random.uniform(-1, 1, [64, self.z_dim]).astype(np.float32)
         # return self.generator(z, reuse=True)
@@ -966,44 +984,52 @@ class DCGAN(object):
         # print("indeices:",indeices)
 
         sortedIndecies = [x for (y, x) in sorted(zip(scores, indeices), key=lambda pair: pair[0])]
+
+        if(mixed):
+            print("Sampling both good and bad noise")
+            splitIndexFirstBatch = int(float(self.batch_size) / float(3))
+            sortedIndeciesBatchWorst = sortedIndecies[:splitIndexFirstBatch]
+
+
+
+            selectedImages = np.zeros((self.batch_size, self.output_height, self.output_width, self.c_dim), dtype=np.float32) #tf.stack(newBatch)
+            # selectedNoise = np.zeros((self.batch_size, self.z_dim), dtype=np.float32) #tf.stack(newBatch)
+            selectedNoise = np.random.uniform(-1, 1, [self.batch_size, self.z_dim]).astype(np.float32)
+
+            for i in range(0, splitIndexFirstBatch):
+                # noe[0][i] = images[int(sortedIndeciesBatch[i])]
+                selectedImages[i] = images[int(sortedIndeciesBatchWorst[i])]
+                selectedNoise[i] = eval_z[int(sortedIndeciesBatchWorst[i])]
+
+            sortedIndecies.reverse()
+            sortedIndeciesBatchBest = sortedIndecies[:splitIndexFirstBatch]
+
+
+            for i in range(0, splitIndexFirstBatch):
+                # noe[0][i] = images[int(sortedIndeciesBatch[i])]
+                selectedImages[i+splitIndexFirstBatch] = images[int(sortedIndeciesBatchBest[i])]
+                selectedNoise[i+splitIndexFirstBatch] = eval_z[int(sortedIndeciesBatchBest[i])]
+
+            return selectedImages, selectedNoise
+
         # print(sortedIndecies)
-        if (getBestImagesOnly):
+        elif (getBestImagesOnly):
             sortedIndecies.reverse()
 
         sortedIndeciesBatch = sortedIndecies[:self.batch_size]
 
-        # newBatch = np.array([self.batch_size, self.output_height, self.output_width, self.c_dim])
 
         selectedImages = np.zeros((self.batch_size, self.output_height, self.output_width, self.c_dim), dtype=np.float32) #tf.stack(newBatch)
-        selectedNoise = np.zeros((self.batch_size, self.z_dim), dtype=np.float32) #tf.stack(newBatch)
+        # selectedNoise = np.zeros((self.batch_size, self.z_dim), dtype=np.float32) #tf.stack(newBatch)
+        selectedNoise = np.random.uniform(-1, 1, [self.batch_size, self.z_dim]).astype(np.float32)
 
-
-
-        # np.zeros((len(trY), self.y_dim), dtype=np.float)
-
-        # print("newBatch :", newBatch.shape)
-        # print("Index :", sortedIndeciesBatch[1][0])
-
-        # newBatch[0] = images[int(sortedIndeciesBatch[0])]
 
         for i in range(0, self.batch_size):
             # noe[0][i] = images[int(sortedIndeciesBatch[i])]
             selectedImages[i] = images[int(sortedIndeciesBatch[i])]
             selectedNoise[i] = eval_z[int(sortedIndeciesBatch[i])]
 
-        # print("Done, return images!")
-        # return samples_eval
-        # return tf.stack(newBatch)
-        # return noe
 
-
-
-        # X = ["a", "b", "c", "d", "e", "f", "g", "h", "i"]
-        # Y = [0, 1, 1, 0, 1, 2, 2, 0, 1]
-        #
-        # sorted = [x for (y, x) in sorted(zip(Y, X), key=lambda pair: pair[0])]
-        #
-        # print(sorted)
 
         return selectedImages, selectedNoise
 

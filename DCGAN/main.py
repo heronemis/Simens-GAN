@@ -43,13 +43,14 @@ flags.DEFINE_boolean("shuffle_data", False, "Shuffle training data before traini
 flags.DEFINE_boolean("improved_z_noise", False, "Use Z noise based on training images [False]")
 flags.DEFINE_boolean("static_z", False, "Use the Z noise during each epoch of training[False]")
 flags.DEFINE_boolean("minibatch_discrimination", False, "Use of Minibatch Discrimination [False]")
-flags.DEFINE_integer("tournament_selection", 1, "0 is turned off. 1 will select the best images from a large selection while 2 will select the worst images. [0,1,2]")
+flags.DEFINE_integer("tournament_selection", 3, "0 is turned off. 1 will select the best images from a large selection while 2 will select the worst images. [0,1,2,3]")
 
 
 FLAGS = flags.FLAGS
 
 
 def main(_):
+
 
 
     pp.pprint(flags.FLAGS.__flags)

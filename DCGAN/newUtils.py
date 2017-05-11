@@ -115,6 +115,8 @@ def getAddons(FLAGS):
         addons.append("tournament_selection_best")
     elif(FLAGS.tournament_selection == 2):
         addons.append("tournament_selection_worst")
+    elif(FLAGS.tournament_selection == 3):
+        addons.append("tournament_selection_mixed")
 
     if (len(addons) > 0):
         return "-" + str(addons).replace("'", "").replace(",", "+").replace("]", "").replace("[", "").replace(" ", "")
