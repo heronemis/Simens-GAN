@@ -209,18 +209,19 @@ def main(_):
         testratio = float(testScoreGAN_1) / float(testScoreGAN_2)
         print(" ")
         print("testRatio = GAN1",float(testScoreGAN_1) ," / GAN2", float(testScoreGAN_2), " = ",  testratio )
-        if(testratio > 0.9 and testratio < 1.1):
-            print("Test ratio PASSED")
-        else:
-            print("Test ratio FAILED")
+
 
 
 
 
         sampleRatio = float(sampleScoreGAN_1) / float(sampleScoreGAN_2)
-        print(" ")
         # print("sampleRatio = ", float(sampleScoreGAN_1), " / ", float(sampleScoreGAN_2), " = ", sampleRatio)
         print("sampleRatio = GAN1", float(sampleScoreGAN_1), " / GAN2", float(sampleScoreGAN_2), " = ", sampleRatio)
+        print(" ")
+        if(testratio > 0.9 and testratio < 1.1):
+            print("Test ratio PASSED")
+        else:
+            print("Test ratio FAILED")
         if(sampleRatio < 0.98):
             print("WINNER GAN 2 -",FLAGS.gan2)
         elif(sampleRatio > 1.02):
