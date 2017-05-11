@@ -150,65 +150,57 @@ def main(_):
 
         print(" ")
         print(" ")
-        print("GAN 1 -",FLAGS.gan1)
-        print(" ")
+        print("GAN 1 -",FLAGS.gan1,"trained for",dcgan.loadTrainingITerations(FLAGS.gan1),"iterations")
+        print("GAN 2 -", FLAGS.gan2,"trained for",dcgan.loadTrainingITerations(FLAGS.gan2),"iterations")
         print(" ")
 
-        print("Loading checkpoint at: ",FLAGS.gan1)
-        if not dcgan.load(FLAGS.gan1):
+        # print("Loading checkpoint at: ",FLAGS.gan1)
+        if not dcgan.loadSilent(FLAGS.gan1):
             raise Exception("[!] Train a model first, then run test mode")
         testScoreGAN_1 = dcgan.evalImages(testDataset,FLAGS,True)
         print(" ")
-        print("GAN 1 ("+FLAGS.gan1+") test score on test dataset:" , str(testScoreGAN_1) + "%", )
+        print("GAN 1 test score:" , str(testScoreGAN_1) + "%", )
 
         samplesGAN_1 = dcgan.getGeneratorSamples(sampleDatasetSize,dataset=sample_files,improved_z_noise=False)
         privateSampleScoreGAN_1 = dcgan.evalImages(samplesGAN_1, FLAGS, False)
-        print(" ")
-        print("GAN 1 (" + FLAGS.gan1 + ") score on its own samples:", str(privateSampleScoreGAN_1) + "%", )
+        print("GAN 1 score on its own samples:", str(privateSampleScoreGAN_1) + "%", )
 
 
-        print(" ")
-        print(" ")
-        print("GAN 2 -",FLAGS.gan2)
-        print(" ")
-        print(" ")
-
-
-        print("Loading checkpoint at: ",FLAGS.gan2)
-        if not dcgan.load(FLAGS.gan2):
+        # print("Loading checkpoint at: ",FLAGS.gan2)
+        if not dcgan.loadSilent(FLAGS.gan2):
             raise Exception("[!] Train a model first, then run test mode")
         testScoreGAN_2 = dcgan.evalImages(testDataset,FLAGS,True)
         print(" ")
-        print("GAN 2 (" + FLAGS.gan2 + ") test score on test dataset:", str(testScoreGAN_2) + "%", )
+        print("GAN 2 test score on test dataset:", str(testScoreGAN_2) + "%", )
 
         sampleScoreGAN_2 = dcgan.evalImages(samplesGAN_1, FLAGS, False)
-        print(" ")
-        print("GAN 2 (" + FLAGS.gan2 + ") score on GAN 1's samples:", str(sampleScoreGAN_2) + "%", )
+
+        print("GAN 2 score on GAN 1's samples:", str(sampleScoreGAN_2) + "%", )
 
         samplesGAN_2 = dcgan.getGeneratorSamples(sampleDatasetSize,dataset=sample_files)
         privateSampleScoreGAN_2 = dcgan.evalImages(samplesGAN_2, FLAGS, False)
-        print(" ")
-        print("GAN 2 (" + FLAGS.gan2 + ") score on its own samples:", str(privateSampleScoreGAN_2) + "%", )
+
+        print("GAN 2 score on its own samples:", str(privateSampleScoreGAN_2) + "%", )
 
 
         testratio = float(testScoreGAN_1) / float(testScoreGAN_2)
-        print(" ")
-        print("testRatio = GAN1",float(testScoreGAN_1) ," / GAN2", float(testScoreGAN_2), " = ",  testratio )
+        # print(" ")
+        # print("testRatio = GAN1",float(testScoreGAN_1) ," / GAN2", float(testScoreGAN_2), " = ",  testratio )
 
 
-        print(" ")
+        # print(" ")
 
-        print("GAN 1 -", FLAGS.gan1,"again")
-        print(" ")
+        # print("GAN 1 -", FLAGS.gan1,"again")
+        # print(" ")
 
-        print("Loading checkpoint at: ",FLAGS.gan1)
-        if not dcgan.load(FLAGS.gan1):
+        # print("Loading checkpoint at: ",FLAGS.gan1)
+        if not dcgan.loadSilent(FLAGS.gan1):
             raise Exception("[!] Train a model first, then run test mode")
 
-        print(" ")
+        # print(" ")
         sampleScoreGAN_1 = dcgan.evalImages(samplesGAN_2,FLAGS,False)
         print(" ")
-        print("GAN 1 (" + FLAGS.gan1 + ") score on GAN 2's samples:", str(sampleScoreGAN_1) + "%", )
+        print("GAN 1 score on GAN 2's samples:", str(sampleScoreGAN_1) + "%", )
 
         print(" ")
         print(" ")

@@ -816,13 +816,13 @@ class DCGAN(object):
         # if (dataset != None):
         #     sampleSize = len(dataset)
 
-        print("Generating", sampleSize * self.batch_size, "images for evaluation with GAM")
+        # print("Generating", sampleSize * self.batch_size, "images for evaluation with GAM")
 
         selectedImages = np.zeros((sampleSize*self.batch_size, self.output_height, self.output_width, self.c_dim), dtype=np.float32) #tf.stack(newBatch)
         # selectedNoise = np.zeros((self.batch_size, self.z_dim), dtype=np.float32) #tf.stack(newBatch)
 
-        if (dataset != None and improved_z_noise):
-            print("Current GAN is using improved_z_noise")
+        # if (dataset != None and improved_z_noise):
+        #     print("Current GAN is using improved_z_noise")
 
         for b in range(0,sampleSize):
 
@@ -867,7 +867,7 @@ class DCGAN(object):
             if(b == sampleSize/2):
                 print(" - Halfway done")
 
-        print("Sample generation done")
+        # print("Sample generation done")
         # print("Size: ", len(selectedImages))
         # print("Size[0]: ", len(selectedImages[0]))
         # print("Size[0][0]: ", len(selectedImages[0][0]))
@@ -1399,3 +1399,37 @@ class DCGAN(object):
         else:
             print(" [*] Failed to find a checkpoint")
             return False
+
+
+    def loadSilent(self, checkpoint_dir):
+        # print(" [*] Reading checkpoints...")
+        checkpoint_dir = os.path.join(checkpoint_dir, self.model_dir)
+
+        ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
+        if ckpt and ckpt.model_checkpoint_path:
+            ckpt_name = os.path.basename(ckpt.model_checkpoint_path)
+            self.saver.restore(self.sess, os.path.join(checkpoint_dir, ckpt_name))
+            # print(" [*] Success to read {}".format(ckpt_name))
+            iteratons = ckpt_name.split("-")
+            # print("     Trained for",iteratons,"iterations")
+            return True
+        else:
+            print(" [*] Failed to find a checkpoint")
+            return False
+
+
+    def loadTrainingITerations(self, checkpoint_dir):
+        # print(" [*] Reading checkpoints...")
+        checkpoint_dir = os.path.join(checkpoint_dir, self.model_dir)
+
+        ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
+        if ckpt and ckpt.model_checkpoint_path:
+            ckpt_name = os.path.basename(ckpt.model_checkpoint_path)
+            # self.saver.restore(self.sess, os.path.join(checkpoint_dir, ckpt_name))
+            # print(" [*] Success to read {}".format(ckpt_name))
+            iteratons = ckpt_name.split("-")[1]
+            return iteratons
+
+        else:
+            print(" [*] Failed to find a checkpoint")
+            return -1
