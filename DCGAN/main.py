@@ -3,6 +3,7 @@ import scipy.misc
 import numpy as np
 import time
 from datetime import datetime
+from glob import glob
 
 from model import DCGAN
 from utils import pp, visualize, to_json
@@ -58,6 +59,15 @@ def main(_):
         FLAGS.input_width = FLAGS.input_height
     if FLAGS.output_width is None:
         FLAGS.output_width = FLAGS.output_height
+
+    data = glob(os.path.join("./data", FLAGS.dataset, "*.jpeg"))
+    if(len(data) == 0):
+        print("Did not find any photos with extension .jpeg")
+
+        data = glob(os.path.join("./data", FLAGS.dataset, "*.jpg"))
+        print("Trying extension .jpg - Found",len(data),"images :)")
+        FLAGS.input_fname_pattern = "*.jpg"
+
 
     newUtils.createFolderName(FLAGS)
     # print(FLAGS.sample_dir)

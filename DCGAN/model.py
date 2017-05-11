@@ -47,6 +47,10 @@ class DCGAN(object):
         self.batch_size = batch_size
         self.sample_num = sample_num
 
+        self.secondDicsriminator = False
+        if(self.secondDicsriminator):
+            print("secondDicsriminator is True")
+
         self.input_height = input_height
         self.input_width = input_width
         self.output_height = output_height
@@ -70,8 +74,14 @@ class DCGAN(object):
         self.d_bn1 = batch_norm(name='d_bn1')
         self.d_bn2 = batch_norm(name='d_bn2')
 
+        if self.secondDicsriminator:
+            self.d2_bn1 = batch_norm(name='d2_bn1')
+            self.d2_bn2 = batch_norm(name='d2_bn2')
+
         if not self.y_dim:
             self.d_bn3 = batch_norm(name='d_bn3')
+            if self.secondDicsriminator:
+                self.d2_bn3 = batch_norm(name='d2_bn3')
 
         self.g_bn0 = batch_norm(name='g_bn0')
         self.g_bn1 = batch_norm(name='g_bn1')
@@ -100,6 +110,8 @@ class DCGAN(object):
 
         self.inputs = tf.placeholder(tf.float32, [self.batch_size] + image_dims, name='real_images')
 
+        self.inputsArchiveFake = tf.placeholder(tf.float32, [self.batch_size] + image_dims, name='fake_fromArchive')
+
         self.inputsProc = tf.placeholder(tf.float32, [self.batch_size] + image_dims, name='inputsProc')
 
 
@@ -110,6 +122,7 @@ class DCGAN(object):
         self.eval_input = tf.placeholder(tf.float32, [self.evalSize] + image_dims, name='eval_input')
 
         inputs = self.inputs
+        inputsArchiveFake = self.inputsArchiveFake
         inputsProc = self.inputsProc
         sample_inputs = self.sample_inputs
 
@@ -134,6 +147,10 @@ class DCGAN(object):
         else:
 
             self.D, self.D_logits = self.discriminator(inputs)
+
+            if self.secondDicsriminator:
+                self.D2, self.D2_logits = self.discriminator(inputs,secondDiscriminator=True)
+                # self.D2, self.D2_logits = self.discriminator(inputsArchiveFake,secondDiscriminator=True)
 
             # self.GInit = self.generator(self.z, useBatching=False)
             self.G = self.generator(self.z)
@@ -164,6 +181,10 @@ class DCGAN(object):
 
             # self.D_, self.D_logits_ = self.discriminator(self.G, reuse=True)
             self.D_, self.D_logits_ = self.discriminator(self.G, reuse=True)
+
+            if self.secondDicsriminator:
+                self.D2_, self.D2_logits_ = self.discriminator(self.inputsArchiveFake, reuse=True,secondDiscriminator=True)
+                # self.D2Archive, self.D2_logitsArchive = self.discriminator(self.G, reuse=True,secondDiscriminator=True)
             #
             # self.D_, self.D_logits_ = self.discriminator(inputsProc, reuse=True)
             self.generatorEval = self.generator(self.z, y=None, reuse=True, tempBatchSize=self.evalSize,
@@ -181,6 +202,11 @@ class DCGAN(object):
 
         self.d_sum = histogram_summary("d", self.D)
         self.d__sum = histogram_summary("d_", self.D_)
+
+        if self.secondDicsriminator:
+            self.d2_sum = histogram_summary("d2", self.D2)
+            self.d2__sum = histogram_summary("d2_", self.D2_)
+
         self.G_sum = image_summary("G", self.G)
 
         def sigmoid_cross_entropy_with_logits(x, y):
@@ -196,6 +222,13 @@ class DCGAN(object):
         self.g_loss = tf.reduce_mean(
             sigmoid_cross_entropy_with_logits(self.D_logits_, tf.ones_like(self.D_)))
 
+        if self.secondDicsriminator:
+            self.d2_loss_real = tf.reduce_mean(
+                sigmoid_cross_entropy_with_logits(self.D2_logits, tf.ones_like(self.D2)))
+            self.d2_loss_fake = tf.reduce_mean(
+                sigmoid_cross_entropy_with_logits(self.D2_logits_, tf.zeros_like(self.D2_)))
+            # self.g2_loss = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.D2_logitsArchive, tf.ones_like(self.D2_)))
+
         # self.d_loss_real = tf.reduce_mean(
         #     sigmoid_cross_entropy_with_logits(self.D_logits, tf.zeros_like(self.D)))
         # self.d_loss_fake = tf.reduce_mean(
@@ -206,14 +239,29 @@ class DCGAN(object):
         self.d_loss_real_sum = scalar_summary("d_loss_real", self.d_loss_real)
         self.d_loss_fake_sum = scalar_summary("d_loss_fake", self.d_loss_fake)
 
+
         self.d_loss = self.d_loss_real + self.d_loss_fake
+
+        if self.secondDicsriminator:
+            self.d2_loss_real_sum = scalar_summary("d2_loss_real", self.d2_loss_real)
+            self.d2_loss_fake_sum = scalar_summary("d2_loss_fake", self.d2_loss_fake)
+
+            self.d2_loss = self.d2_loss_real + self.d2_loss_fake
 
         self.g_loss_sum = scalar_summary("g_loss", self.g_loss)
         self.d_loss_sum = scalar_summary("d_loss", self.d_loss)
+        if self.secondDicsriminator:
+            self.d2_loss_sum = scalar_summary("d2_loss", self.d2_loss)
 
         t_vars = tf.trainable_variables()
 
         self.d_vars = [var for var in t_vars if 'd_' in var.name]
+
+        if self.secondDicsriminator:
+            self.d2_vars = [var for var in t_vars if 'd2_' in var.name]
+
+
+
         self.g_vars = [var for var in t_vars if 'g_' in var.name]
 
         self.saver = tf.train.Saver()
@@ -248,10 +296,10 @@ class DCGAN(object):
         # elif (percentage < lastAccuracy):
         #     deri = "--"
         #
-        if (realImages):
-            print("Accuracy(REAL):", deri + str(percentage) + "% (", correct, "samples )")
-        else:
-            print("Accuracy(FAKE):", deri + str(percentage) + "% (", correct, "samples )")
+        # if (realImages):
+        #     print("Accuracy(REAL):", deri + str(percentage) + "% (", correct, "samples )")
+        # else:
+        #     print("Accuracy(FAKE):", deri + str(percentage) + "% (", correct, "samples )")
         return percentage
 
     def train(self, config):
@@ -307,6 +355,11 @@ class DCGAN(object):
             .minimize(self.d_loss, var_list=self.d_vars)
         g_optim = tf.train.AdamOptimizer(config.learning_rate_G, beta1=config.beta1_G) \
             .minimize(self.g_loss, var_list=self.g_vars)
+
+        if self.secondDicsriminator:
+            d2_optim = tf.train.AdamOptimizer(config.learning_rate_D, beta1=config.beta1_D) \
+                .minimize(self.d2_loss, var_list=self.d2_vars)
+
         try:
             tf.global_variables_initializer().run()
         except:
@@ -320,7 +373,8 @@ class DCGAN(object):
             [self.z_sum, self.d_sum, self.d_loss_real_sum, self.d_loss_sum])
 
 
-
+        self.d2_sum = merge_summary(
+            [self.d2_sum, self.d2_loss_real_sum, self.d2_loss_sum])
 
         # self.GTest = self.generator(self.z, reuse=True, useBatching=True)
 
@@ -481,6 +535,9 @@ class DCGAN(object):
                     # if (lastRealAccuracy > 70):
                     # _, summary_str = self.sess.run([d_optim, self.d_sum],feed_dict={self.inputs: batch_images, self.inputsProc: inputs})
                     _, summary_str = self.sess.run([d_optim, self.d_sum],feed_dict={self.inputs: batch_images, self.z: batch_z})
+
+
+                    _, summary_str = self.sess.run([d2_optim, self.d2_sum],feed_dict={self.inputs: batch_images, self.inputsArchiveFake: batch_images})
 
 
 
@@ -753,9 +810,9 @@ class DCGAN(object):
 
 
 
-    def getGeneratorSamples(self,dataset=None,improved_z_noise=False):
+    def getGeneratorSamples(self,sampleSize,dataset=None,improved_z_noise=False):
 
-        sampleSize = 200
+        # sampleSize = 200
         # if (dataset != None):
         #     sampleSize = len(dataset)
 
@@ -952,7 +1009,7 @@ class DCGAN(object):
 
 
 
-    def discriminator(self, image, y=None, reuse=False, tempBatchSize=None):
+    def discriminator(self, image, y=None, reuse=False, tempBatchSize=None,secondDiscriminator=False):
         with tf.variable_scope("discriminator") as scope:
             if reuse:
                 scope.reuse_variables()
@@ -961,13 +1018,23 @@ class DCGAN(object):
                 tempBatchSize = self.batch_size
 
             if not self.y_dim:
-                h0 = lrelu(conv2d(image, self.df_dim, name='d_h0_conv'))
-                h1 = lrelu(self.d_bn1(conv2d(h0, self.df_dim * 2, name='d_h1_conv')))
-                h2 = lrelu(self.d_bn2(conv2d(h1, self.df_dim * 4, name='d_h2_conv')))
-                h3 = lrelu(self.d_bn3(conv2d(h2, self.df_dim * 8, name='d_h3_conv')))
-                h4 = linear(tf.reshape(h3, [tempBatchSize, -1]), 1, 'd_h3_lin')
+                if not secondDiscriminator:
+                    h0 = lrelu(conv2d(image, self.df_dim, name='d_h0_conv'))
+                    h1 = lrelu(self.d_bn1(conv2d(h0, self.df_dim * 2, name='d_h1_conv')))
+                    h2 = lrelu(self.d_bn2(conv2d(h1, self.df_dim * 4, name='d_h2_conv')))
+                    h3 = lrelu(self.d_bn3(conv2d(h2, self.df_dim * 8, name='d_h3_conv')))
+                    h4 = linear(tf.reshape(h3, [tempBatchSize, -1]), 1, 'd_h3_lin')
 
-                return tf.nn.sigmoid(h4), h4
+                    return tf.nn.sigmoid(h4), h4
+                else:
+                    print("Hei hei hei")
+                    h0 = lrelu(conv2d(image, self.df_dim, name='d2_h0_conv'))
+                    h1 = lrelu(self.d2_bn1(conv2d(h0, self.df_dim * 2, name='d2_h1_conv')))
+                    h2 = lrelu(self.d2_bn2(conv2d(h1, self.df_dim * 4, name='d2_h2_conv')))
+                    h3 = lrelu(self.d2_bn3(conv2d(h2, self.df_dim * 8, name='d2_h3_conv')))
+                    h4 = linear(tf.reshape(h3, [tempBatchSize, -1]), 1, 'd2_h3_lin')
+
+                    return tf.nn.sigmoid(h4), h4
             else:
                 yb = tf.reshape(y, [tempBatchSize, 1, 1, self.y_dim])
                 x = conv_cond_concat(image, yb)
@@ -1317,7 +1384,7 @@ class DCGAN(object):
 
         self.saver.save(self.sess,
                         os.path.join(checkpoint_dir, model_name),
-                        global_step=step)
+                        global_step=step,max_to_keep=20)
 
     def load(self, checkpoint_dir):
         print(" [*] Reading checkpoints...")
