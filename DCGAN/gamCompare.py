@@ -69,9 +69,17 @@ def main(_):
     if FLAGS.output_width is None:
         FLAGS.output_width = FLAGS.output_height
 
-    testDatasetSize = 80*FLAGS.batch_size
-    sampleDatasetSize = 2*FLAGS.batch_size
-    data = glob(os.path.join("./data", FLAGS.dataset, FLAGS.input_fname_pattern))
+    testDatasetSize = 1*FLAGS.batch_size
+    sampleDatasetSize = 1 #*FLAGS.batch_size
+    data = glob(os.path.join("./data", FLAGS.dataset, "*.jpeg"))
+    if(len(data) == 0):
+        print("Did not find any photos with extension .jpeg")
+
+        data = glob(os.path.join("./data", FLAGS.dataset, "*.jpg"))
+        print("Trying extension .jpg - Found",len(data),"images :)")
+        FLAGS.input_fname_pattern = "*.jpg"
+
+
     np.random.shuffle(data)
     # testDatasetSize =  len(data)
     batch_files = data[:min(len(data), testDatasetSize) ]
@@ -102,7 +110,7 @@ def main(_):
     newUtils.createConfingCSV(FLAGS.sample_dir,FLAGS)
     # return
 
-    pp.pprint(flags.FLAGS.__flags)
+    # pp.pprint(flags.FLAGS.__flags)
 
     # print(FLAGS.sample_dir.default_value)
 
@@ -125,40 +133,24 @@ def main(_):
     print("Starting to load dcgan")
 
     with tf.Session(config=run_config) as sess:
-        if FLAGS.dataset == 'mnist':
-            dcgan = DCGAN(
-                sess,
-                input_width=FLAGS.input_width,
-                input_height=FLAGS.input_height,
-                output_width=FLAGS.output_width,
-                output_height=FLAGS.output_height,
-                batch_size=FLAGS.batch_size,
-                y_dim=10,
-                c_dim=1,
-                dataset_name=FLAGS.dataset,
-                input_fname_pattern=FLAGS.input_fname_pattern,
-                is_crop=FLAGS.is_crop,
-                checkpoint_dir=FLAGS.checkpoint_dir,
-                sample_dir=FLAGS.sample_dir)
-        else:
-            dcgan = DCGAN(
-                sess,
-                input_width=FLAGS.input_width,
-                input_height=FLAGS.input_height,
-                output_width=FLAGS.output_width,
-                output_height=FLAGS.output_height,
-                batch_size=FLAGS.batch_size,
-                c_dim=FLAGS.c_dim,
-                dataset_name=FLAGS.dataset,
-                input_fname_pattern=FLAGS.input_fname_pattern,
-                is_crop=FLAGS.is_crop,
-                checkpoint_dir=FLAGS.checkpoint_dir,
-                sample_dir=FLAGS.sample_dir)
+        dcgan = DCGAN(
+            sess,
+            input_width=FLAGS.input_width,
+            input_height=FLAGS.input_height,
+            output_width=FLAGS.output_width,
+            output_height=FLAGS.output_height,
+            batch_size=FLAGS.batch_size,
+            c_dim=FLAGS.c_dim,
+            dataset_name=FLAGS.dataset,
+            input_fname_pattern=FLAGS.input_fname_pattern,
+            is_crop=FLAGS.is_crop,
+            checkpoint_dir=FLAGS.checkpoint_dir,
+            sample_dir=FLAGS.sample_dir)
 
 
         print(" ")
         print(" ")
-        print("GAN 1")
+        print("GAN 1 -",FLAGS.gan1)
         print(" ")
         print(" ")
 
@@ -166,13 +158,18 @@ def main(_):
         if not dcgan.load(FLAGS.gan1):
             raise Exception("[!] Train a model first, then run test mode")
         testScoreGAN_1 = dcgan.evalImages(testDataset,FLAGS,True)
-        samplesGAN_1 = dcgan.getGeneratorSamples(dataset=sample_files,improved_z_noise=False)
-        dcgan.evalImages(samplesGAN_1, FLAGS, False)
+        print(" ")
+        print("GAN 1 ("+FLAGS.gan1+") test score on test dataset:" , str(testScoreGAN_1) + "%", )
+
+        samplesGAN_1 = dcgan.getGeneratorSamples(sampleDatasetSize,dataset=sample_files,improved_z_noise=False)
+        privateSampleScoreGAN_1 = dcgan.evalImages(samplesGAN_1, FLAGS, False)
+        print(" ")
+        print("GAN 1 (" + FLAGS.gan1 + ") score on its own samples:", str(privateSampleScoreGAN_1) + "%", )
 
 
         print(" ")
         print(" ")
-        print("GAN 2")
+        print("GAN 2 -",FLAGS.gan2)
         print(" ")
         print(" ")
 
@@ -181,47 +178,68 @@ def main(_):
         if not dcgan.load(FLAGS.gan2):
             raise Exception("[!] Train a model first, then run test mode")
         testScoreGAN_2 = dcgan.evalImages(testDataset,FLAGS,True)
-        sampleScoreGAN_2 = dcgan.evalImages(samplesGAN_1, FLAGS, False)
-        samplesGAN_2 = dcgan.getGeneratorSamples(dataset=sample_files)
+        print(" ")
+        print("GAN 2 (" + FLAGS.gan2 + ") test score on test dataset:", str(testScoreGAN_2) + "%", )
 
+        sampleScoreGAN_2 = dcgan.evalImages(samplesGAN_1, FLAGS, False)
+        print(" ")
+        print("GAN 2 (" + FLAGS.gan2 + ") score on GAN 1's samples:", str(sampleScoreGAN_2) + "%", )
+
+        samplesGAN_2 = dcgan.getGeneratorSamples(sampleDatasetSize,dataset=sample_files)
+        privateSampleScoreGAN_2 = dcgan.evalImages(samplesGAN_2, FLAGS, False)
+        print(" ")
+        print("GAN 2 (" + FLAGS.gan2 + ") score on its own samples:", str(privateSampleScoreGAN_2) + "%", )
 
 
         testratio = float(testScoreGAN_1) / float(testScoreGAN_2)
-        print("testRatio = ",float(testScoreGAN_1) ," / ", float(testScoreGAN_2), " = ",  testratio )
+        print(" ")
+        print("testRatio = GAN1",float(testScoreGAN_1) ," / GAN2", float(testScoreGAN_2), " = ",  testratio )
 
 
         print(" ")
-        print(" ")
-        print("GAN 1")
-        print(" ")
+
+        print("GAN 1 -", FLAGS.gan1,"again")
         print(" ")
 
         print("Loading checkpoint at: ",FLAGS.gan1)
         if not dcgan.load(FLAGS.gan1):
             raise Exception("[!] Train a model first, then run test mode")
 
+        print(" ")
         sampleScoreGAN_1 = dcgan.evalImages(samplesGAN_2,FLAGS,False)
+        print(" ")
+        print("GAN 1 (" + FLAGS.gan1 + ") score on GAN 2's samples:", str(sampleScoreGAN_1) + "%", )
+
+        print(" ")
+        print(" ")
+        print(" ")
+
+        testratio = float(testScoreGAN_1) / float(testScoreGAN_2)
+        print(" ")
+        print("testRatio = GAN1",float(testScoreGAN_1) ," / GAN2", float(testScoreGAN_2), " = ",  testratio )
+        if(testratio > 0.9 and testratio < 1.1):
+            print("Test ratio PASSED")
+        else:
+            print("Test ratio FAILED")
+
+
+
 
         sampleRatio = float(sampleScoreGAN_1) / float(sampleScoreGAN_2)
-        print("sampleRatio = ", float(sampleScoreGAN_1), " / ", float(sampleScoreGAN_2), " = ", sampleRatio)
+        print(" ")
+        # print("sampleRatio = ", float(sampleScoreGAN_1), " / ", float(sampleScoreGAN_2), " = ", sampleRatio)
+        print("sampleRatio = GAN1", float(sampleScoreGAN_1), " / GAN2", float(sampleScoreGAN_2), " = ", sampleRatio)
+        if(sampleRatio < 0.98):
+            print("WINNER GAN 2 -",FLAGS.gan2)
+        elif(sampleRatio > 1.02):
+            print("WINNER GAN 1 -",FLAGS.gan1)
+        elif (sampleRatio == 1.00):
+            print("TIE - Sample score is 1.0")
+        else:
+            print("TIE - Sample score too close to 1.0")
+        print(" ")
+        print(" ")
 
-        # print("Loading checkpoint at: ", FLAGS.gan2)
-        # if not dcgan.load(FLAGS.checkpoint_dir):
-        #     raise Exception("[!] Train a model first, then run test mode")
-        #
-        # dcgan.getGeneratorSamples()
-        #
-        # print("Loading checkpoint at: ",FLAGS.gan1)
-        # if not dcgan.load(FLAGS.gan1):
-        #     raise Exception("[!] Train a model first, then run test mode")
-        #
-        # dcgan.getGeneratorSamples()
-        #
-        # print("Loading checkpoint at: ", FLAGS.gan2)
-        # if not dcgan.load(FLAGS.checkpoint_dir):
-        #     raise Exception("[!] Train a model first, then run test mode")
-        #
-        # dcgan.getGeneratorSamples()
 
 if __name__ == '__main__':
     tf.app.run()
