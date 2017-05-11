@@ -62,7 +62,7 @@ class DCGAN(object):
         self.gfc_dim = gfc_dim
         self.dfc_dim = dfc_dim
 
-        self.evalSize = batch_size
+        self.evalSize = batch_size*1
 
         self.c_dim = c_dim
 
@@ -269,7 +269,7 @@ class DCGAN(object):
         shouldLoadData = True
         useEvalSet = True
         writeLogs = False
-        tournament_selection_noise = config.tournament_selection
+        tournament_selection_noise = config.tournament_selection == 1
         useImproved_z_noise = config.improved_z_noise
         useStaticZNoise = config.static_z
 
@@ -531,7 +531,7 @@ class DCGAN(object):
 
                     writeAccuracyToFile(config.sample_dir,[lastRealAccuracy/100.0,lastFakeAccuracy/100.0, (lastRealAccuracy + lastFakeAccuracy)/200.00 ])
 
-                if np.mod(counter, 100) == 1 :
+                if np.mod(counter, 50) == 1 :
 
                     # self.batchGenerator()
 
@@ -668,7 +668,8 @@ class DCGAN(object):
                         samples = None
 
                         if (tournament_selection_noise):
-                            samples, sample_z = self.batchGenerator()
+                            getBestImagesOnly = config.tournament_selection == 1
+                            samples, sample_z = self.batchGenerator(getBestImagesOnly=getBestImagesOnly)
 
                         elif (useStaticZNoise):
                             sample_z = static_z[idx * config.batch_size:(idx + 1) * config.batch_size]
@@ -744,7 +745,7 @@ class DCGAN(object):
                         # except:
                         #     print("one pic error!...")
 
-                if np.mod(counter, 2000) == 1:
+                if np.mod(counter, 2000) == 1 or np.mod(counter-1, 2000) == 1:
                     print("Saving checkpoint")
                     self.save(config.checkpoint_dir, counter)
 
@@ -754,7 +755,7 @@ class DCGAN(object):
 
     def getGeneratorSamples(self,dataset=None,improved_z_noise=False):
 
-        sampleSize = 3000
+        sampleSize = 200
         # if (dataset != None):
         #     sampleSize = len(dataset)
 
@@ -830,6 +831,7 @@ class DCGAN(object):
         # )
         #
         # return  samples_eval
+        # print("Tournemetn selection in progress, generating from a size of ", self.evalSize)
 
 
         generationSize = self.batch_size * 5

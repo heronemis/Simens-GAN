@@ -20,11 +20,11 @@ import tensorflow as tf
 
 flags = tf.app.flags
 flags2 = tf.app.flags
-flags.DEFINE_integer("epoch", 25, "Epoch to train [25]")
-flags.DEFINE_float("learning_rate_D", 0.00006, "Learning rate of Discriminator for adam [0.0002]")
-flags.DEFINE_float("learning_rate_G", 0.00006, "Learning rate of Generator for adam [0.0002]")
-flags.DEFINE_float("beta1_D", 0.01, "Momentum term of Discriminator for adam [0.5]")
-flags.DEFINE_float("beta1_G", 0.01, "Momentum term of Generator for adam [0.5]")
+flags.DEFINE_integer("epoch", 200, "Epoch to train [25]")
+flags.DEFINE_float("learning_rate_D", 0.0002, "Learning rate of Discriminator for adam [0.0002]") #00006
+flags.DEFINE_float("learning_rate_G", 0.0002, "Learning rate of Generator for adam [0.0002]")
+flags.DEFINE_float("beta1_D", 0.5, "Momentum term of Discriminator for adam [0.5]")
+flags.DEFINE_float("beta1_G", 0.5, "Momentum term of Generator for adam [0.5]")
 flags.DEFINE_integer("train_size", np.inf, "The size of train images [np.inf]")
 flags.DEFINE_integer("batch_size", 64, "The size of batch images [64]")
 flags.DEFINE_integer("input_height", 108, "The size of image to use (will be center cropped). [108]")
@@ -36,7 +36,7 @@ flags.DEFINE_integer("output_width", None,
                      "The size of the output images to produce. If None, same value as output_height [None]")
 flags.DEFINE_integer("c_dim", 3, "Dimension of image color. [3]")
 flags.DEFINE_string("dataset", "celebA", "The name of dataset [celebA, mnist, lsun]")
-flags.DEFINE_string("input_fname_pattern", "*.jpg", "Glob pattern of filename of input images [*]")
+flags.DEFINE_string("input_fname_pattern", "*.jpeg", "Glob pattern of filename of input images [*]")
 flags.DEFINE_string("checkpoint_dir", "checkpoint", "Directory name to save the checkpoints [checkpoint]")
 flags.DEFINE_string("sample_dir", "samples", "Directory name to save the image samples [samples]")
 flags.DEFINE_boolean("is_train", False, "True for training, False for testing [False]")
@@ -69,12 +69,13 @@ def main(_):
     if FLAGS.output_width is None:
         FLAGS.output_width = FLAGS.output_height
 
-    testDatasetSize = 20*FLAGS.batch_size
+    testDatasetSize = 80*FLAGS.batch_size
     sampleDatasetSize = 2*FLAGS.batch_size
     data = glob(os.path.join("./data", FLAGS.dataset, FLAGS.input_fname_pattern))
+    np.random.shuffle(data)
     # testDatasetSize =  len(data)
     batch_files = data[:min(len(data), testDatasetSize) ]
-    sample_files = data[:int(len(data)/100) ]
+    sample_files = data[:int(len(data)) ]
 
     testDataset = [
         get_image(batch_file,
@@ -165,7 +166,7 @@ def main(_):
         if not dcgan.load(FLAGS.gan1):
             raise Exception("[!] Train a model first, then run test mode")
         testScoreGAN_1 = dcgan.evalImages(testDataset,FLAGS,True)
-        samplesGAN_1 = dcgan.getGeneratorSamples(dataset=sample_files,improved_z_noise=True)
+        samplesGAN_1 = dcgan.getGeneratorSamples(dataset=sample_files,improved_z_noise=False)
         dcgan.evalImages(samplesGAN_1, FLAGS, False)
 
 
