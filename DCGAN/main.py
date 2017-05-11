@@ -13,7 +13,7 @@ import newUtils
 import tensorflow as tf
 
 flags = tf.app.flags
-flags.DEFINE_integer("epoch", 200, "Epoch to train [25]")
+flags.DEFINE_integer("epoch", 25, "Epoch to train [25]")
 flags.DEFINE_float("learning_rate_D", 0.0002, "Learning rate of Discriminator for adam [0.0002]") #00006
 flags.DEFINE_float("learning_rate_G", 0.0002, "Learning rate of Generator for adam [0.0002]")
 flags.DEFINE_float("beta1_D", 0.5, "Momentum term of Discriminator for adam [0.5]")
@@ -43,7 +43,7 @@ flags.DEFINE_boolean("shuffle_data", False, "Shuffle training data before traini
 flags.DEFINE_boolean("improved_z_noise", False, "Use Z noise based on training images [False]")
 flags.DEFINE_boolean("static_z", False, "Use the Z noise during each epoch of training[False]")
 flags.DEFINE_boolean("minibatch_discrimination", False, "Use of Minibatch Discrimination [False]")
-flags.DEFINE_integer("tournament_selection", 2, "0 is turned off. 1 will select the best images from a large selection while 2 will select the worst images. [0,1,2]")
+flags.DEFINE_integer("tournament_selection", 1, "0 is turned off. 1 will select the best images from a large selection while 2 will select the worst images. [0,1,2]")
 
 
 FLAGS = flags.FLAGS

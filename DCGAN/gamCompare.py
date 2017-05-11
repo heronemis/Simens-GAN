@@ -69,8 +69,8 @@ def main(_):
     if FLAGS.output_width is None:
         FLAGS.output_width = FLAGS.output_height
 
-    testDatasetSize = 1*FLAGS.batch_size
-    sampleDatasetSize = 1 #*FLAGS.batch_size
+    testDatasetSize = 120*FLAGS.batch_size
+    sampleDatasetSize = 800 #*FLAGS.batch_size
     data = glob(os.path.join("./data", FLAGS.dataset, "*.jpeg"))
     if(len(data) == 0):
         print("Did not find any photos with extension .jpeg")

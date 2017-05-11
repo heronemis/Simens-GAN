@@ -66,7 +66,7 @@ class DCGAN(object):
         self.gfc_dim = gfc_dim
         self.dfc_dim = dfc_dim
 
-        self.evalSize = batch_size*1
+        self.evalSize = batch_size*10
 
         self.c_dim = c_dim
 
@@ -264,7 +264,7 @@ class DCGAN(object):
 
         self.g_vars = [var for var in t_vars if 'g_' in var.name]
 
-        self.saver = tf.train.Saver()
+        self.saver = tf.train.Saver(max_to_keep=20)
 
     # def evalImages(self, lastAccuracy, evalDataset, config, realImages=True):
     def evalImages(self, evalDataset, config, realImages=True):
@@ -372,9 +372,9 @@ class DCGAN(object):
         self.d_sum = merge_summary(
             [self.z_sum, self.d_sum, self.d_loss_real_sum, self.d_loss_sum])
 
-
-        self.d2_sum = merge_summary(
-            [self.d2_sum, self.d2_loss_real_sum, self.d2_loss_sum])
+        if self.secondDicsriminator:
+            self.d2_sum = merge_summary(
+                [self.d2_sum, self.d2_loss_real_sum, self.d2_loss_sum])
 
         # self.GTest = self.generator(self.z, reuse=True, useBatching=True)
 
@@ -536,8 +536,8 @@ class DCGAN(object):
                     # _, summary_str = self.sess.run([d_optim, self.d_sum],feed_dict={self.inputs: batch_images, self.inputsProc: inputs})
                     _, summary_str = self.sess.run([d_optim, self.d_sum],feed_dict={self.inputs: batch_images, self.z: batch_z})
 
-
-                    _, summary_str = self.sess.run([d2_optim, self.d2_sum],feed_dict={self.inputs: batch_images, self.inputsArchiveFake: batch_images})
+                    if self.secondDicsriminator:
+                        _, summary_str = self.sess.run([d2_optim, self.d2_sum],feed_dict={self.inputs: batch_images, self.inputsArchiveFake: batch_images})
 
 
 
@@ -1384,7 +1384,7 @@ class DCGAN(object):
 
         self.saver.save(self.sess,
                         os.path.join(checkpoint_dir, model_name),
-                        global_step=step,max_to_keep=20)
+                        global_step=step)
 
     def load(self, checkpoint_dir):
         print(" [*] Reading checkpoints...")
