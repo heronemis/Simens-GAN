@@ -728,7 +728,7 @@ class DCGAN(object):
 
                         samples = None
 
-                        if (tournament_selection_noise):
+                        if (tournament_selection_noise and False):
                             getBestImagesOnly = config.tournament_selection == 1
                             samples, sample_z = self.batchGenerator(config.tournament_selection)
 
