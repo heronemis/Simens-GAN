@@ -224,19 +224,28 @@ def main(_):
         print("sampleRatio = GAN1", float(sampleScoreGAN_1), " / GAN2", float(sampleScoreGAN_2), " = ", sampleRatio)
         print(" ")
         if(testratio > 0.9 and testratio < 1.1):
-            print("Test ratio PASSED")
+            print("Test ratio PASSED -  ",testratio,"= 1")
         else:
-            print("Test ratio FAILED")
-        if(sampleRatio < 0.98):
+            print("Test ratio FAILED-  ",testratio,"!= 1")
+
+
+        if(sampleRatio > 0.98 and sampleRatio < 1.0):
+            print("GAN 2 is better, but they are very similar -",FLAGS.gan2)
+        elif (sampleRatio < 1.02 and sampleRatio > 1.0):
+                print("GAN 1 is better, but they are very similar -", FLAGS.gan1)
+        elif(sampleRatio < 0.98):
             print("WINNER GAN 2 -",FLAGS.gan2)
         elif(sampleRatio > 1.02):
             print("WINNER GAN 1 -",FLAGS.gan1)
         elif (sampleRatio == 1.00):
             print("TIE - Sample score is 1.0")
         else:
-            print("TIE - Sample score too close to 1.0")
+            print("TIE - Sample score of",sampleRatio,"is too close to 1.0")
         print(" ")
         print(" ")
+
+        print("Testing past checkpoints of GAN 1 on the samples from GAN 2")
+        dcgan.evalPastCheckpoints(FLAGS.checkpoint_dir,samplesGAN_2,FLAGS)
 
 
 if __name__ == '__main__':

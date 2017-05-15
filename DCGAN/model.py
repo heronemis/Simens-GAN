@@ -1412,11 +1412,29 @@ class DCGAN(object):
                         os.path.join(checkpoint_dir, model_name),
                         global_step=step)
 
+
+
+    def evalPastCheckpoints(self, checkpoint_dir,testSamples,FLAGS):
+        checkpoint_dir = os.path.join(checkpoint_dir, self.model_dir)
+        ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
+        print("Found",len(ckpt.all_model_checkpoint_paths),"checkpoints")
+        for checkpoint in ckpt.all_model_checkpoint_paths:
+            ckpt_name = os.path.basename(checkpoint)
+            self.saver.restore(self.sess, os.path.join(checkpoint_dir, ckpt_name))
+            print(" [*] Success to read {}".format(ckpt_name))
+            score = self.evalImages(testSamples, FLAGS, False)
+            print("Checkpoint",ckpt_name," sample score is",score)
+
     def load(self, checkpoint_dir):
         print(" [*] Reading checkpoints...")
         checkpoint_dir = os.path.join(checkpoint_dir, self.model_dir)
 
+
+
         ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
+        print("ckpt: ", ckpt)
+        print("ckpt: ", (ckpt.all_model_checkpoint_paths))
+
         if ckpt and ckpt.model_checkpoint_path:
             ckpt_name = os.path.basename(ckpt.model_checkpoint_path)
             self.saver.restore(self.sess, os.path.join(checkpoint_dir, ckpt_name))
