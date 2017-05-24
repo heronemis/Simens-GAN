@@ -25,7 +25,7 @@ def initCSV(sampleDir):
     global commonName
     with open(sampleDir+"/accuracy - " + commonName + ".csv", "w") as csvfile:
         writer = csv.writer(csvfile, delimiter=';', quoting=csv.QUOTE_MINIMAL, dialect='excel-tab')
-        writer.writerow(["Real classified as real(%)","Fake classified as fake(%)","Combined","Avg combined(last " + str(n) + ")","Max combined(last " + str(n) + ")"])
+        writer.writerow(["Epoch","Real classified as real(%)","Fake classified as fake(%)","Combined","Avg combined(last " + str(n) + ")","Max combined(last " + str(n) + ")"])
 
 
 def createConfingCSV(sampleDir,FLAGS):
@@ -83,7 +83,8 @@ def writeAccuracyToFile(sampleDir,accuracy):
         writer = csv.writer(csvfile, delimiter=';', quoting=csv.QUOTE_MINIMAL, dialect='excel-tab')
         # for i in range(0, len(fList), 2):
         # mylist = [  random.uniform(0.000000, 1.0000000), random.uniform(0.00000000, 1.000000)  ]
-        writer.writerow(localize_floats(updatedAcc))
+        # writer.writerow(localize_floats(updatedAcc))
+        writer.writerow((updatedAcc))
 
     return updatedAcc[3]
 
@@ -119,7 +120,7 @@ def getAddons(FLAGS):
         addons.append("tournament_selection_mixed")
 
     if (len(addons) > 0):
-        return "-" + str(addons).replace("'", "").replace(",", "+").replace("]", "").replace("[", "").replace(" ", "")
+        return "-" + str(addons).replace("'", "").replace(",", "+").replace("]", "").replace("[", "").replace(" ", "")+ "_" + str(FLAGS.eval_size)+"bs"
     else:
         return ""
 
@@ -168,5 +169,11 @@ def createFolderName(FLAGS):
 # hei = [1,2,3,4,5,6,7,8,9,10,11,12,13,14]
 # print(hei[-5:])
 
-
-# writeAccuracyToFile()
+#
+# # writeAccuracyToFile()
+# from glob import glob
+#
+# data = glob(os.path.join("./data", "cat/*", "*.jpg"))
+#
+# print(len(data))
+# print((data[122]))

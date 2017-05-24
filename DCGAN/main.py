@@ -13,7 +13,7 @@ import newUtils
 import tensorflow as tf
 
 flags = tf.app.flags
-flags.DEFINE_integer("epoch", 25, "Epoch to train [25]")
+flags.DEFINE_integer("epoch", 40, "Epoch to train [25]")
 flags.DEFINE_float("learning_rate_D", 0.0002, "Learning rate of Discriminator for adam [0.0002]") #00006
 flags.DEFINE_float("learning_rate_G", 0.0002, "Learning rate of Generator for adam [0.0002]")
 flags.DEFINE_float("beta1_D", 0.5, "Momentum term of Discriminator for adam [0.5]")
@@ -36,14 +36,14 @@ flags.DEFINE_boolean("is_train", False, "True for training, False for testing [F
 flags.DEFINE_boolean("is_crop", False, "True for training, False for testing [False]")
 flags.DEFINE_boolean("visualize", False, "True for visualizing, False for nothing [False]")
 
-
+flags.DEFINE_integer("eval_size", 10, "Selcted number times the batch size select the number of images used when samples are evaluated")
 
 
 flags.DEFINE_boolean("shuffle_data", False, "Shuffle training data before training [False]")
 flags.DEFINE_boolean("improved_z_noise", False, "Use Z noise based on training images [False]")
 flags.DEFINE_boolean("static_z", False, "Use the Z noise during each epoch of training[False]")
 flags.DEFINE_boolean("minibatch_discrimination", False, "Use of Minibatch Discrimination [False]")
-flags.DEFINE_integer("tournament_selection", 0, "0 is turned off. 1 will select the best images from a large selection while 2 will select the worst images. [0,1,2,3]")
+flags.DEFINE_integer("tournament_selection", 1, "0 is turned off. 1 will select the best images from a large selection while 2 will select the worst images. [0,1,2,3]")
 
 
 FLAGS = flags.FLAGS
@@ -61,7 +61,10 @@ def main(_):
     if FLAGS.output_width is None:
         FLAGS.output_width = FLAGS.output_height
 
-    data = glob(os.path.join("./data", FLAGS.dataset, "*.jpeg"))
+    if (FLAGS.dataset == "cat"):
+        data = glob(os.path.join("./data", "cat/*", "*.jpg"))
+    else:
+        data = glob(os.path.join("./data", FLAGS.dataset, "*.jpeg"))
     if(len(data) == 0):
         print("Did not find any photos with extension .jpeg")
 

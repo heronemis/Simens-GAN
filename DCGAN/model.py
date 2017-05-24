@@ -26,7 +26,7 @@ class DCGAN(object):
                  batch_size=64, sample_num=64, output_height=64, output_width=64,
                  y_dim=None, z_dim=100, gf_dim=64, df_dim=64,
                  gfc_dim=1024, dfc_dim=1024, c_dim=3, dataset_name='default',
-                 input_fname_pattern='*.jpg', checkpoint_dir=None, sample_dir=None):
+                 input_fname_pattern='*.jpg', checkpoint_dir=None, sample_dir=None,evalSize=1):
         """
 
         Args:
@@ -66,7 +66,7 @@ class DCGAN(object):
         self.gfc_dim = gfc_dim
         self.dfc_dim = dfc_dim
 
-        self.evalSize = batch_size*10
+        self.evalSize = batch_size*evalSize
 
         self.c_dim = c_dim
 
@@ -264,10 +264,10 @@ class DCGAN(object):
 
         self.g_vars = [var for var in t_vars if 'g_' in var.name]
 
-        self.saver = tf.train.Saver(max_to_keep=20)
+        self.saver = tf.train.Saver(max_to_keep=50)
 
     # def evalImages(self, lastAccuracy, evalDataset, config, realImages=True):
-    def evalImages(self, evalDataset, config, realImages=True):
+    def evalImages(self, evalDataset, config, realImages=True,useErrorRate=True):
 
         batch_idxs = min(len(evalDataset), config.train_size) // config.batch_size
 
@@ -281,12 +281,18 @@ class DCGAN(object):
             for res in range(0, config.batch_size):
                 # print("Real ", evalDiscOuput[0][0][res],' - ', 1.0)
                 if (realImages):
-                    if (discriminatorScoresBatch[0][0][res] > 0.5):
+                    if (discriminatorScoresBatch[0][0][res] > 0.7):
                         correct += 1
                 else:
-                    if (discriminatorScoresBatch[0][0][res] < 0.5):
+                    if (discriminatorScoresBatch[0][0][res] < 0.3):
                         correct += 1
                         # print("     - correct!")
+
+        if(useErrorRate):
+            percentage = 1.0 - ((float(correct) / float(len(evalDataset))))
+            return percentage
+        else:
+            print("Not using multiple outputs")
 
         percentage = ((float(correct) / float(len(evalDataset))) * 100)
         #
@@ -308,7 +314,10 @@ class DCGAN(object):
             # data_X, data_y = self.load_mnist()
             data_X, data_y, testing_x_all, testing_y_all = self.load_mnist_with_test()
         else:
-            data = glob(os.path.join("./data", config.dataset, self.input_fname_pattern))
+            if(config.dataset == "cat"):
+                data = glob(os.path.join("./data", "cat/*", "*.jpg"))
+            else:
+                data = glob(os.path.join("./data", config.dataset, self.input_fname_pattern))
 
 
 
@@ -430,8 +439,10 @@ class DCGAN(object):
             if config.dataset == 'mnist':
                 batch_idxs = min(len(data_X), config.train_size) // config.batch_size
             else:
-                data = glob(os.path.join(
-                    "./data", config.dataset, self.input_fname_pattern))
+                if (config.dataset == "cat"):
+                    data = glob(os.path.join("./data", "cat/*", "*.jpg"))
+                else:
+                    data = glob(os.path.join("./data", config.dataset, self.input_fname_pattern))
                 batch_idxs = min(len(data), config.train_size) // config.batch_size
 
             for idx in xrange(0, batch_idxs):
@@ -576,7 +587,7 @@ class DCGAN(object):
 
 
                 # if idx <= 100 or True:
-                if np.mod(counter, 50) == 1 and False:
+                if np.mod(counter, 50) == 1:
                     eval_z = np.random.uniform(-1, 1, [self.evalSize, self.z_dim]).astype(np.float32)
                     samples_eval = self.sess.run(
                         [self.generatorEval ],
@@ -587,10 +598,12 @@ class DCGAN(object):
 
                     samples_eval = np.asarray(samples_eval[0])
 
-                    lastRealAccuracy = self.evalImages(lastRealAccuracy, eval_real, config, realImages=True)
-                    lastFakeAccuracy = self.evalImages(lastFakeAccuracy, samples_eval, config, realImages=False)
+                    lastRealAccuracy = self.evalImages( eval_real, config, realImages=True,useErrorRate=False)
+                    lastFakeAccuracy = self.evalImages( samples_eval, config, realImages=False,useErrorRate=False)
 
-                    writeAccuracyToFile(config.sample_dir,[lastRealAccuracy/100.0,lastFakeAccuracy/100.0, (lastRealAccuracy + lastFakeAccuracy)/200.00 ])
+                    iterationNumber = float(idx) / float(batch_idxs) + float(epoch)
+
+                    writeAccuracyToFile(config.sample_dir,[iterationNumber,lastRealAccuracy/100.0,lastFakeAccuracy/100.0, (lastRealAccuracy + lastFakeAccuracy)/200.00 ])
 
                 if np.mod(counter, 50) == 1 :
 
@@ -806,9 +819,11 @@ class DCGAN(object):
                         # except:
                         #     print("one pic error!...")
 
-                if np.mod(counter, 2000) == 1 or np.mod(counter-1, 2000) == 1:
-                    print("Saving checkpoint")
-                    self.save(config.checkpoint_dir, counter)
+                # if np.mod(counter, 2000) == 1 or np.mod(counter-1, 2000) == 1:
+                #     print("Saving checkpoint")
+                #     self.save(config.checkpoint_dir, counter)
+            print("End of current Epoch, saving checkpoint")
+            self.save(config.checkpoint_dir, counter)
 
 
 
@@ -1414,16 +1429,46 @@ class DCGAN(object):
 
 
 
-    def evalPastCheckpoints(self, checkpoint_dir,testSamples,FLAGS):
+    def evalPastCheckpoints(self, checkpoint_dir,testSamples,generatedTestSamples,FLAGS,maxIterationNumber=None):
         checkpoint_dir = os.path.join(checkpoint_dir, self.model_dir)
         ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
         print("Found",len(ckpt.all_model_checkpoint_paths),"checkpoints")
+        averageScore = 0
+        averageValidationScore = 0
+
+        epochNumber = 0
+
         for checkpoint in ckpt.all_model_checkpoint_paths:
             ckpt_name = os.path.basename(checkpoint)
+            iteratons = ckpt_name.split("-")[1]
+
+
+            # self.saver.restore(self.sess, os.path.join(checkpoint_dir, ckpt_name))
+            # print(" [*] Success to read {}".format(ckpt_name))
+            if(maxIterationNumber != None):
+
+                if(int(iteratons) > maxIterationNumber):
+                    print("This model is trained longer than the other. Aborting test here")
+                    break
+
+
+
             self.saver.restore(self.sess, os.path.join(checkpoint_dir, ckpt_name))
-            print(" [*] Success to read {}".format(ckpt_name))
-            score = self.evalImages(testSamples, FLAGS, False)
-            print("Checkpoint",ckpt_name," sample score is",score)
+            # print(" [*] Success to read {}".format(ckpt_name))
+            score = self.evalImages(generatedTestSamples, FLAGS, False)
+            validationScore = self.evalImages(testSamples, FLAGS, True)
+            print("Epoch",epochNumber,"[" + str(iteratons) + " iterations]"," sample score is", round((1-score)*100,2) ,"% - (ValidationScore",round((1-validationScore)*100,2) ,"%)")
+            averageScore += score
+            averageValidationScore += validationScore
+            epochNumber += 1
+        print(" ")
+        print(" ")
+        print(" ")
+        averageScore = float(averageScore) / float(len(ckpt.all_model_checkpoint_paths))
+        averageValidationScore = float(averageValidationScore) / float(len(ckpt.all_model_checkpoint_paths))
+        print("Average score: ",averageScore)
+        print("Average validation score: ",averageValidationScore)
+        return averageScore, averageValidationScore
 
     def load(self, checkpoint_dir):
         print(" [*] Reading checkpoints...")
@@ -1432,8 +1477,8 @@ class DCGAN(object):
 
 
         ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
-        print("ckpt: ", ckpt)
-        print("ckpt: ", (ckpt.all_model_checkpoint_paths))
+        # print("ckpt: ", ckpt)
+        # print("ckpt: ", (ckpt.all_model_checkpoint_paths))
 
         if ckpt and ckpt.model_checkpoint_path:
             ckpt_name = os.path.basename(ckpt.model_checkpoint_path)
@@ -1472,8 +1517,29 @@ class DCGAN(object):
             # self.saver.restore(self.sess, os.path.join(checkpoint_dir, ckpt_name))
             # print(" [*] Success to read {}".format(ckpt_name))
             iteratons = ckpt_name.split("-")[1]
-            return iteratons
+            return int(iteratons)
 
         else:
             print(" [*] Failed to find a checkpoint")
             return -1
+
+    def loadCloestsCheckpoint(self, checkpoint_dir,numberOfITerations):
+
+
+        checkpoint_dir = os.path.join(checkpoint_dir, self.model_dir)
+        ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
+
+
+        for checkpoint in ckpt.all_model_checkpoint_paths:
+            ckpt_name = os.path.basename(checkpoint)
+
+            if(numberOfITerations != None):
+                iteratons = ckpt_name.split("-")[1]
+                if(int(iteratons) == numberOfITerations):
+                    #print("Found checkpoint match")
+                    self.saver.restore(self.sess, os.path.join(checkpoint_dir, ckpt_name))
+                    #print(" [*] Success to read {}".format(ckpt_name))
+                    return True
+
+        print("Mathcing checkpoint not found!")
+        return False

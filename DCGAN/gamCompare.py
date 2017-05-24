@@ -20,7 +20,7 @@ import tensorflow as tf
 
 flags = tf.app.flags
 flags2 = tf.app.flags
-flags.DEFINE_integer("epoch", 200, "Epoch to train [25]")
+flags.DEFINE_integer("epoch", 25, "Epoch to train [25]")
 flags.DEFINE_float("learning_rate_D", 0.0002, "Learning rate of Discriminator for adam [0.0002]") #00006
 flags.DEFINE_float("learning_rate_G", 0.0002, "Learning rate of Generator for adam [0.0002]")
 flags.DEFINE_float("beta1_D", 0.5, "Momentum term of Discriminator for adam [0.5]")
@@ -59,7 +59,9 @@ flags.DEFINE_string("gan2", "errorMissingGan2Checkpoint", "Checkpoint folder for
 FLAGS = flags.FLAGS
 
 
-
+def convertDecimalToPerctage(errorrate):
+    per = round(errorrate*100,4)
+    return str(per)+"%"
 
 
 def main(_):
@@ -74,9 +76,12 @@ def main(_):
     if FLAGS.output_width is None:
         FLAGS.output_width = FLAGS.output_height
 
-    testDatasetSize = 120*FLAGS.batch_size
-    sampleDatasetSize = 800 #*FLAGS.batch_size
-    data = glob(os.path.join("./data", FLAGS.dataset, "*.jpeg"))
+    testDatasetSize = 200*FLAGS.batch_size
+    sampleDatasetSize = 200 #*FLAGS.batch_size
+    if (FLAGS.dataset == "cat"):
+        data = glob(os.path.join("./data", "cat/*", "*.jpg"))
+    else:
+        data = glob(os.path.join("./data", FLAGS.dataset, "*.jpeg"))
     if(len(data) == 0):
         print("Did not find any photos with extension .jpeg")
 
@@ -109,10 +114,10 @@ def main(_):
 
 
 
-    newUtils.createFolderName(FLAGS)
+    # newUtils.createFolderName(FLAGS)
     # print(FLAGS.sample_dir)
 
-    newUtils.createConfingCSV(FLAGS.sample_dir,FLAGS)
+    #newUtils.createConfingCSV(FLAGS.sample_dir,FLAGS)
     # return
 
     # pp.pprint(flags.FLAGS.__flags)
@@ -123,10 +128,10 @@ def main(_):
     #     print("path", path, "not found. Creating new folder")
     #     os.makedirs(path)
 
-    if not os.path.exists(FLAGS.checkpoint_dir):
-        os.makedirs(FLAGS.checkpoint_dir)
-    if not os.path.exists(FLAGS.sample_dir):
-        os.makedirs(FLAGS.sample_dir)
+    # if not os.path.exists(FLAGS.checkpoint_dir):
+    #     os.makedirs(FLAGS.checkpoint_dir)
+    # if not os.path.exists(FLAGS.sample_dir):
+    #     os.makedirs(FLAGS.sample_dir)
 
 
 
@@ -150,45 +155,53 @@ def main(_):
             input_fname_pattern=FLAGS.input_fname_pattern,
             is_crop=FLAGS.is_crop,
             checkpoint_dir=FLAGS.checkpoint_dir,
-            sample_dir=FLAGS.sample_dir)
+            sample_dir=FLAGS.sample_dir,
+            evalSize=1)
 
+
+        gan1Name = FLAGS.gan1.replace("checkpoint/","")
+        gan2Name = FLAGS.gan2.replace("checkpoint/","")
+
+
+        minIterations = min(dcgan.loadTrainingITerations(FLAGS.gan1), dcgan.loadTrainingITerations(FLAGS.gan2))
+        #minIterations = 53947
+        print("Minimum training iterations are",minIterations)
 
         print(" ")
         print(" ")
-        print("GAN 1 -",FLAGS.gan1,"trained for",dcgan.loadTrainingITerations(FLAGS.gan1),"iterations")
-        print("GAN 2 -", FLAGS.gan2,"trained for",dcgan.loadTrainingITerations(FLAGS.gan2),"iterations")
+        print("GAN 1 -",gan1Name,"trained for",dcgan.loadTrainingITerations(FLAGS.gan1),"iterations")
+        print("GAN 2 -", gan2Name,"trained for",dcgan.loadTrainingITerations(FLAGS.gan2),"iterations")
         print(" ")
 
         # print("Loading checkpoint at: ",FLAGS.gan1)
-        if not dcgan.loadSilent(FLAGS.gan1):
+        if not dcgan.loadCloestsCheckpoint(FLAGS.gan1,minIterations):
             raise Exception("[!] Train a model first, then run test mode")
         testScoreGAN_1 = dcgan.evalImages(testDataset,FLAGS,True)
         print(" ")
-        print("GAN 1 test score:" , str(testScoreGAN_1) + "%", )
+        print("GAN 1 test error rate:" , convertDecimalToPerctage(testScoreGAN_1))
 
         samplesGAN_1 = dcgan.getGeneratorSamples(sampleDatasetSize,dataset=sample_files,improved_z_noise=False)
         privateSampleScoreGAN_1 = dcgan.evalImages(samplesGAN_1, FLAGS, False)
-        print("GAN 1 score on its own samples:", str(privateSampleScoreGAN_1) + "%", )
+        print("GAN 1 error rate on its own samples:", convertDecimalToPerctage(privateSampleScoreGAN_1))
 
 
         # print("Loading checkpoint at: ",FLAGS.gan2)
-        if not dcgan.loadSilent(FLAGS.gan2):
+        if not dcgan.loadCloestsCheckpoint(FLAGS.gan2,minIterations):
             raise Exception("[!] Train a model first, then run test mode")
         testScoreGAN_2 = dcgan.evalImages(testDataset,FLAGS,True)
         print(" ")
-        print("GAN 2 test score on test dataset:", str(testScoreGAN_2) + "%", )
+        print("GAN 2 test error rate:", convertDecimalToPerctage(testScoreGAN_2) + "", )
 
         sampleScoreGAN_2 = dcgan.evalImages(samplesGAN_1, FLAGS, False)
 
-        print("GAN 2 score on GAN 1's samples:", str(sampleScoreGAN_2) + "%", )
+        print("GAN 2 error rate on GAN 1's samples:", convertDecimalToPerctage(sampleScoreGAN_2) + "", )
 
-        samplesGAN_2 = dcgan.getGeneratorSamples(sampleDatasetSize,dataset=sample_files)
+        samplesGAN_2 = dcgan.getGeneratorSamples(sampleDatasetSize,dataset=sample_files,improved_z_noise=True)
         privateSampleScoreGAN_2 = dcgan.evalImages(samplesGAN_2, FLAGS, False)
 
-        print("GAN 2 score on its own samples:", str(privateSampleScoreGAN_2) + "%", )
+        print("GAN 2 error rate on its own samples:", convertDecimalToPerctage(privateSampleScoreGAN_2) + "", )
 
 
-        testratio = float(testScoreGAN_1) / float(testScoreGAN_2)
         # print(" ")
         # print("testRatio = GAN1",float(testScoreGAN_1) ," / GAN2", float(testScoreGAN_2), " = ",  testratio )
 
@@ -199,21 +212,25 @@ def main(_):
         # print(" ")
 
         # print("Loading checkpoint at: ",FLAGS.gan1)
-        if not dcgan.loadSilent(FLAGS.gan1):
+        if not dcgan.loadCloestsCheckpoint(FLAGS.gan1,minIterations):
             raise Exception("[!] Train a model first, then run test mode")
 
         # print(" ")
         sampleScoreGAN_1 = dcgan.evalImages(samplesGAN_2,FLAGS,False)
         print(" ")
-        print("GAN 1 score on GAN 2's samples:", str(sampleScoreGAN_1) + "%", )
+        print("GAN 1 test error on GAN 2's samples:", convertDecimalToPerctage(sampleScoreGAN_1) + "", )
 
         print(" ")
         print(" ")
         print(" ")
 
-        testratio = float(testScoreGAN_1) / float(testScoreGAN_2)
+        if(testScoreGAN_2 == 0):
+            testratio = 0
+        else:
+            testratio = float(testScoreGAN_1) / float(testScoreGAN_2)
         print(" ")
         print("testRatio = GAN1",float(testScoreGAN_1) ," / GAN2", float(testScoreGAN_2), " = ",  testratio )
+
 
 
 
@@ -223,29 +240,95 @@ def main(_):
         # print("sampleRatio = ", float(sampleScoreGAN_1), " / ", float(sampleScoreGAN_2), " = ", sampleRatio)
         print("sampleRatio = GAN1", float(sampleScoreGAN_1), " / GAN2", float(sampleScoreGAN_2), " = ", sampleRatio)
         print(" ")
-        if(testratio > 0.9 and testratio < 1.1):
-            print("Test ratio PASSED -  ",testratio,"= 1")
+        if(round(testratio) == 1):
+            print("Test ratio PASSED - round(",testratio,") = 1.0")
         else:
-            print("Test ratio FAILED-  ",testratio,"!= 1")
+            print("Test ratio FAILED - round(",testratio,") =", round(testratio))
+
+        print(" ")
+        print("testRatio =",round(testratio,3))
+        print("sampleRatio =",round(sampleRatio,3))
 
 
-        if(sampleRatio > 0.98 and sampleRatio < 1.0):
-            print("GAN 2 is better, but they are very similar -",FLAGS.gan2)
-        elif (sampleRatio < 1.02 and sampleRatio > 1.0):
-                print("GAN 1 is better, but they are very similar -", FLAGS.gan1)
-        elif(sampleRatio < 0.98):
-            print("WINNER GAN 2 -",FLAGS.gan2)
-        elif(sampleRatio > 1.02):
-            print("WINNER GAN 1 -",FLAGS.gan1)
+        sampleRatioDiff = abs(float(sampleScoreGAN_1) - float(sampleScoreGAN_2))
+
+        if (sampleRatio < 0.999):
+            print("WINNER GAN 1 with score", sampleRatio, " - ", gan1Name)
+            #print(gan1Name+ " score +"+ str(sampleRatioDiff) +" against " + gan1Name+ " score -"+ str(sampleRatioDiff))
+        elif (sampleRatio > 1.001):
+            print("WINNER GAN 2 with score",sampleRatio," - ", gan2Name)
+            #print(gan1Name + " score +" + str(sampleRatioDiff) + " against " + gan2Name + " score -" + str(sampleRatioDiff))
+
         elif (sampleRatio == 1.00):
             print("TIE - Sample score is 1.0")
         else:
-            print("TIE - Sample score of",sampleRatio,"is too close to 1.0")
+            print("TIE - Sample score of", sampleRatio, "is too close to 1.0")
         print(" ")
         print(" ")
 
+        print(" ")
+        print("GAN 1 -",FLAGS.gan1,"trained for",dcgan.loadTrainingITerations(FLAGS.gan1),"iterations")
+        print("GAN 2 -", FLAGS.gan2,"trained for",dcgan.loadTrainingITerations(FLAGS.gan2),"iterations")
+        print(" ")
+
+
+
         print("Testing past checkpoints of GAN 1 on the samples from GAN 2")
-        dcgan.evalPastCheckpoints(FLAGS.checkpoint_dir,samplesGAN_2,FLAGS)
+        sampleScoreGAN_1,testScoreGAN_1 = dcgan.evalPastCheckpoints(FLAGS.gan1,testDataset,samplesGAN_2,FLAGS,maxIterationNumber=minIterations)
+
+        print(" ")
+        print(" ")
+
+        print("Testing past checkpoints of GAN 2 on the samples from GAN 1")
+        sampleScoreGAN_2, testScoreGAN_2 = dcgan.evalPastCheckpoints(FLAGS.gan2,testDataset, samplesGAN_1, FLAGS,maxIterationNumber=minIterations)
+
+
+
+
+
+        ####
+        if(testScoreGAN_2 == 0):
+            testratio = 0
+        else:
+            testratio = float(testScoreGAN_1) / float(testScoreGAN_2)
+        print(" ")
+        print("testRatio = GAN1",float(testScoreGAN_1) ," / GAN2", float(testScoreGAN_2), " = ",  testratio )
+
+
+
+
+
+
+        sampleRatio = float(sampleScoreGAN_1) / float(sampleScoreGAN_2)
+        # print("sampleRatio = ", float(sampleScoreGAN_1), " / ", float(sampleScoreGAN_2), " = ", sampleRatio)
+        print("sampleRatio = GAN1", float(sampleScoreGAN_1), " / GAN2", float(sampleScoreGAN_2), " = ", sampleRatio)
+        print(" ")
+        if(round(testratio) == 1):
+            print("Test ratio PASSED - round(",testratio,") = 1.0")
+        else:
+            print("Test ratio FAILED - round(",testratio,") =", round(testratio))
+
+
+        print(" ")
+        print("testRatio =",round(testratio,3))
+        print("sampleRatio =",round(sampleRatio,3))
+
+
+        sampleRatioDiff = abs(float(sampleScoreGAN_1) - float(sampleScoreGAN_2))
+
+        if (sampleRatio < 0.999):
+            print("WINNER GAN 1 with score", sampleRatio, " - ", gan1Name)
+            #print(gan1Name+ " score +"+ str(sampleRatioDiff) +" against " + gan1Name+ " score -"+ str(sampleRatioDiff))
+        elif (sampleRatio > 1.001):
+            print("WINNER GAN 2 with score",sampleRatio," - ", gan2Name)
+            #print(gan1Name + " score +" + str(sampleRatioDiff) + " against " + gan2Name + " score -" + str(sampleRatioDiff))
+
+        elif (sampleRatio == 1.00):
+            print("TIE - Sample score is 1.0")
+        else:
+            print("TIE - Sample score of", sampleRatio, "is too close to 1.0")
+        print(" ")
+        print(" ")
 
 
 if __name__ == '__main__':
