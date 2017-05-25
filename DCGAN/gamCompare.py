@@ -40,7 +40,7 @@ flags.DEFINE_string("input_fname_pattern", "*.jpeg", "Glob pattern of filename o
 flags.DEFINE_string("checkpoint_dir", "checkpoint", "Directory name to save the checkpoints [checkpoint]")
 flags.DEFINE_string("sample_dir", "samples", "Directory name to save the image samples [samples]")
 flags.DEFINE_boolean("is_train", False, "True for training, False for testing [False]")
-flags.DEFINE_boolean("is_crop", False, "True for training, False for testing [False]")
+flags.DEFINE_boolean("is_crop", True, "True for training, False for testing [False]")
 flags.DEFINE_boolean("visualize", False, "True for visualizing, False for nothing [False]")
 
 
@@ -67,7 +67,37 @@ def convertDecimalToPerctage(errorrate):
 def main(_):
 
 
+    gan1Name = FLAGS.gan1.replace("checkpoint/", "")
+    gan2Name = FLAGS.gan2.replace("checkpoint/", "")
 
+    if( len(gan1Name) > len(gan2Name)):
+        print("Are the models in correct order????")
+        print("The shorter on is GAN2 but should probalby be GAN1? amarigt?")
+
+        print("Aborting to be safe")
+        return
+
+    gamFolder = "gamResults/"
+    if not os.path.exists(gamFolder):
+        os.makedirs(gamFolder)
+        print("Folder not found. Creaintg it!")
+
+
+    fileName = gan1Name + "__vs__"+ gan2Name
+    fileName = fileName.replace("/","")
+
+    if  os.path.exists(gamFolder + fileName + ".csv"):
+        print(" ")
+        print("Results allready excsists!")
+        print(fileName)
+        print(fileName)
+        print(fileName)
+        print("Are you sure?")
+        print("Are you sure?")
+        print("Are you sure?")
+        print("Are you sure?")
+        print("Aborting to be safe")
+        return
 
 
 
@@ -76,8 +106,10 @@ def main(_):
     if FLAGS.output_width is None:
         FLAGS.output_width = FLAGS.output_height
 
-    testDatasetSize = 200*FLAGS.batch_size
-    sampleDatasetSize = 200 #*FLAGS.batch_size
+    print("Processing test data")
+
+    testDatasetSize = 100*FLAGS.batch_size
+    sampleDatasetSize = 100 #*FLAGS.batch_size
     if (FLAGS.dataset == "cat"):
         data = glob(os.path.join("./data", "cat/*", "*.jpg"))
     else:
@@ -93,6 +125,8 @@ def main(_):
     np.random.shuffle(data)
     # testDatasetSize =  len(data)
     batch_files = data[:min(len(data), testDatasetSize) ]
+
+    np.random.shuffle(data)
     sample_files = data[:int(len(data)) ]
 
     testDataset = [
@@ -159,6 +193,255 @@ def main(_):
             evalSize=1)
 
 
+
+
+
+
+        minIterations = min(dcgan.loadTrainingITerations(FLAGS.gan1), dcgan.loadTrainingITerations(FLAGS.gan2))
+        minEpochs= min(dcgan.getNumberOfCheckpoints(FLAGS.gan1), dcgan.getNumberOfCheckpoints(FLAGS.gan2))
+        print("The least trained model has",minEpochs,"checkpoints")
+
+        print(" ")
+        print("GAN 1 -",gan1Name,"trained for",dcgan.loadTrainingITerations(FLAGS.gan1),"iterations")
+        print("GAN 2 -", gan2Name,"trained for",dcgan.loadTrainingITerations(FLAGS.gan2),"iterations")
+        print(" ")
+
+
+        averageTestScoreGAN_1 = 0
+        averageTestScoreGAN_2 = 0
+
+        averageSampleScoreGAN_1 = 0
+        averageSampleScoreGAN_2 = 0
+
+        listTestScoreGAN_1 = []
+        listTestScoreGAN_2 = []
+
+        listSampleScoreGAN_1 = []
+        listSampleScoreGAN_2 = []
+        resultsThroughout = []
+
+
+
+        gan1Wins = 0
+        gan2Wins = 0
+        ties = 0
+
+        #minEpochs = 2
+
+        for n in range(0,minEpochs):
+            print(" ")
+            print(" ")
+            print(" ")
+            print(" ")
+            print(" ")
+            print("Epoch",n)
+
+            #Gan 1
+            dcgan.loadCloestsCheckpointNumber(FLAGS.gan1,minIterations,n)
+
+            testScoreGAN_1= dcgan.evalImages(testDataset,FLAGS,True)
+            averageTestScoreGAN_1 += testScoreGAN_1
+            listTestScoreGAN_1.append(testScoreGAN_1)
+            print(" ")
+            print("GAN 1 test error rate:" , convertDecimalToPerctage(testScoreGAN_1))
+
+
+
+            samplesGAN_1 = dcgan.getGeneratorSamples(sampleDatasetSize)
+
+
+            # GAN 2
+
+            dcgan.loadCloestsCheckpointNumber(FLAGS.gan2, minIterations, n)
+            testScoreGAN_2 = dcgan.evalImages(testDataset,FLAGS,True)
+            averageTestScoreGAN_2 += testScoreGAN_2
+            listTestScoreGAN_2.append(testScoreGAN_2)
+            print("GAN 2 test error rate:", convertDecimalToPerctage(testScoreGAN_2) + "", )
+
+
+
+            # if (testScoreGAN_2 == 0 and testScoreGAN_1 == 0):
+            #     testratio = 1
+            if(testScoreGAN_2 == 0):
+                testScoreGAN_2 = 0.00000001
+            if(testScoreGAN_1 == 0):
+                testScoreGAN_1 = 0.00000001
+            testratio = float(testScoreGAN_1) / float(testScoreGAN_2)
+            print("Test ratio =",testratio)
+
+
+
+            sampleScoreGAN_2 = dcgan.evalImages(samplesGAN_1, FLAGS, False)
+            averageSampleScoreGAN_2 += sampleScoreGAN_2
+            listSampleScoreGAN_2.append(sampleScoreGAN_2)
+            print("GAN 2 error rate on GAN 1's samples:", convertDecimalToPerctage(sampleScoreGAN_2) + "", )
+
+            if("improved_z_noise" in str(gan2Name)):
+                print("improved_z_noise!!!")
+                samplesGAN_2 = dcgan.getGeneratorSamples(sampleDatasetSize,sample_files,improved_z_noise=True)
+                np.random.shuffle(data)
+                sample_files = data[:int(len(data))]
+            else:
+                samplesGAN_2 = dcgan.getGeneratorSamples(sampleDatasetSize)
+
+
+            #GAN1 again
+
+            dcgan.loadCloestsCheckpointNumber(FLAGS.gan1, minIterations, n)
+            sampleScoreGAN_1 = dcgan.evalImages(samplesGAN_2,FLAGS,False)
+            averageSampleScoreGAN_1 += sampleScoreGAN_1
+            listSampleScoreGAN_1.append(sampleScoreGAN_1)
+            print(" ")
+            print("GAN 1 test error on GAN 2's samples:", convertDecimalToPerctage(sampleScoreGAN_1) + "", )
+
+            print(" ")
+            print("testRatio = GAN1",float(testScoreGAN_1) ," / GAN2", float(testScoreGAN_2), " = ",  testratio )
+
+
+
+
+
+            if (sampleScoreGAN_1 == 0 and sampleScoreGAN_2 == 0):
+                sampleRatio = 1
+            elif(sampleScoreGAN_2 == 0):
+                sampleRatio = 0
+            else:
+                sampleRatio = float(sampleScoreGAN_1) / float(sampleScoreGAN_2)
+            # print("sampleRatio = ", float(sampleScoreGAN_1), " / ", float(sampleScoreGAN_2), " = ", sampleRatio)
+            print("sampleRatio = GAN1", float(sampleScoreGAN_1), " / GAN2", float(sampleScoreGAN_2), " = ", sampleRatio)
+            print(" ")
+            if(round(testratio) == 1):
+                print("Test ratio PASSED - round(",testratio,") = 1.0")
+            else:
+                print("Test ratio FAILED - round(",testratio,") =", round(testratio))
+
+            print(" ")
+            print("testRatio =",testratio," ~ ",round(testratio))
+            print("sampleRatio =",sampleRatio," ~ ",round(sampleRatio,3))
+
+
+            sameplRatioRound = round(sampleRatio,3)
+            if (round(testratio) != 1):
+                print("Tie (test failed)")
+                ties += 1
+                resultsThroughout.append("tie_test_failed")
+            elif (sameplRatioRound > 1.0):
+            # if (sampleRatio < 0.999):
+                print("WINNER GAN 1 with score", sampleRatio, " - ", gan1Name)
+                gan1Wins += 1
+                resultsThroughout.append("GAN_1")
+                #print(gan1Name+ " score +"+ str(sampleRatioDiff) +" against " + gan1Name+ " score -"+ str(sampleRatioDiff))
+            elif (sameplRatioRound < 1):
+                print("WINNER GAN 2 with score",sampleRatio," - ", gan2Name)
+                gan2Wins += 1
+                resultsThroughout.append("GAN_2")
+                #print(gan1Name + " score +" + str(sampleRatioDiff) + " against " + gan2Name + " score -" + str(sampleRatioDiff))
+
+            elif (sampleRatio == 1.00):
+                print("TIE - Sample score is 1.0")
+                ties += 1
+                resultsThroughout.append("TIE")
+            else:
+                print("TIE - Sample score of", sampleRatio, "is too close to 1.0")
+                resultsThroughout.append("TIE")
+                ties += 1
+            print(" ")
+            print(" ")
+
+        print("gan1Wins:",gan1Wins)
+        print("gan2Wins:",gan2Wins)
+        print("ties:",ties)
+        print("")
+
+        averageTestScoreGAN_1 = float(averageTestScoreGAN_1) / float(minEpochs)
+        averageTestScoreGAN_2 = float(averageTestScoreGAN_2) / float(minEpochs)
+
+        averageSampleScoreGAN_1 = float(averageSampleScoreGAN_1) / float(minEpochs)
+        averageSampleScoreGAN_2 = float(averageSampleScoreGAN_2) / float(minEpochs)
+
+        print("averageTestScoreGAN_1:", averageTestScoreGAN_1)
+        print("averageTestScoreGAN_2:", averageTestScoreGAN_2)
+        print("averageSampleScoreGAN_1:", averageSampleScoreGAN_1)
+        print("averageSampleScoreGAN_2:", averageSampleScoreGAN_2)
+
+        if (testScoreGAN_2 == 0):
+            testScoreGAN_2 = 0.00000001
+        if (testScoreGAN_1 == 0):
+            testScoreGAN_1 = 0.00000001
+        testratio = float(averageTestScoreGAN_1) / float(averageTestScoreGAN_2)
+        print(" ")
+        print("testRatio = GAN1", float(averageTestScoreGAN_1), " / GAN2", float(averageTestScoreGAN_2), " = ", testratio)
+
+        if (averageSampleScoreGAN_1 == 0 and averageSampleScoreGAN_2 == 0):
+            sampleRatio = 1
+        elif (averageSampleScoreGAN_2 == 0):
+            sampleRatio = 0
+        else:
+            sampleRatio = float(averageSampleScoreGAN_1) / float(averageSampleScoreGAN_2)
+        # print("sampleRatio = ", float(averageSampleScoreGAN_1), " / ", float(averageSampleScoreGAN_2), " = ", sampleRatio)
+        print("sampleRatio = GAN1", float(averageSampleScoreGAN_1), " / GAN2", float(averageSampleScoreGAN_2), " = ", sampleRatio)
+        print(" ")
+        if (round(testratio) == 1):
+            print("Test ratio PASSED - round(", testratio, ") = 1.0")
+        else:
+            print("Test ratio FAILED - round(", testratio, ") =", round(testratio))
+
+        print(" ")
+        print("testRatio =", testratio, " ~ ", round(testratio))
+        print("sampleRatio =", sampleRatio, " ~ ", round(sampleRatio, 3))
+
+        sameplRatioRound = round(sampleRatio, 3)
+        winningGan = "tie"
+
+        if (round(testratio) != 1):
+            print("Tie (test failed)")
+            # ties += 1
+            winningGan = "tie_test_failed"
+        elif (sameplRatioRound > 1.0):
+            # if (sampleRatio < 0.999):
+            print("WINNER GAN 1 with score", sampleRatio, " - ", gan1Name)
+            # gan1Wins += 1
+            winningGan = "GAN_1"
+            # print(gan1Name+ " score +"+ str(sampleRatioDiff) +" against " + gan1Name+ " score -"+ str(sampleRatioDiff))
+        elif (sameplRatioRound < 1):
+            print("WINNER GAN 2 with score", sampleRatio, " - ", gan2Name)
+            # gan2Wins += 1
+            winningGan = "GAN_2"
+            # print(gan1Name + " score +" + str(sampleRatioDiff) + " against " + gan2Name + " score -" + str(sampleRatioDiff))
+
+        elif (sampleRatio == 1.00):
+            print("TIE - Sample score is 1.0")
+            # ties += 1
+        else:
+            print("TIE - Sample score of", sampleRatio, "is too close to 1.0")
+            # ties += 1
+        print(" ")
+
+        newUtils.createGAMCSV(resultsThroughout,gan1Name,gan2Name,listTestScoreGAN_1, listTestScoreGAN_2, listSampleScoreGAN_1, listSampleScoreGAN_2,winningGan,sampleRatio,testratio,gan1Wins,gan2Wins,ties,testDatasetSize,sampleDatasetSize*FLAGS.batch_size)
+
+        print(" ")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        return
+
+
+        #####################################
         gan1Name = FLAGS.gan1.replace("checkpoint/","")
         gan2Name = FLAGS.gan2.replace("checkpoint/","")
 

@@ -272,6 +272,7 @@ class DCGAN(object):
         batch_idxs = min(len(evalDataset), config.train_size) // config.batch_size
 
         correct = 0
+        correctScale = 0
 
         for idx in xrange(0, batch_idxs):
             batch_images = evalDataset[idx * config.batch_size:(idx + 1) * config.batch_size]
@@ -281,15 +282,21 @@ class DCGAN(object):
             for res in range(0, config.batch_size):
                 # print("Real ", evalDiscOuput[0][0][res],' - ', 1.0)
                 if (realImages):
-                    if (discriminatorScoresBatch[0][0][res] > 0.7):
+                    if (discriminatorScoresBatch[0][0][res] > 0.5):
                         correct += 1
+                    if (discriminatorScoresBatch[0][0][res] > 0.5):
+                        correctScale += 1.0 - (1.0 - discriminatorScoresBatch[0][0][res])
                 else:
-                    if (discriminatorScoresBatch[0][0][res] < 0.3):
+                    if (discriminatorScoresBatch[0][0][res] < 0.5):
                         correct += 1
                         # print("     - correct!")
 
+        if (realImages):
+            percentageScale = ((float(correctScale) / float(len(evalDataset))))
+            # print("Error rate scale:",percentageScale,"%")
+
         if(useErrorRate):
-            percentage = 1.0 - ((float(correct) / float(len(evalDataset))))
+            percentage = ((float(correct) / float(len(evalDataset))))
             return percentage
         else:
             print("Not using multiple outputs")
@@ -339,6 +346,32 @@ class DCGAN(object):
 
         if(useStaticZNoise):
             static_z = np.random.uniform(-1, 1, [len(data), self.z_dim]).astype(np.float32)
+
+        elif (useImproved_z_noise):
+            print("Greating all Z-noise based on training data. Might take some time")
+            static_improved_z = np.random.uniform(-1, 1, [len(data), self.z_dim]).astype(np.float32)
+
+            basewidth = 10
+            indexCounter = 0
+            for imgName in data:
+                img = Image.open(imgName)
+                # img = img.convert('L')  # convert image to greyscale
+                wpercent = (basewidth / float(img.size[0]))
+                hsize = int((float(img.size[1]) * float(wpercent)))
+                img = img.resize((basewidth, basewidth), PIL.Image.ANTIALIAS)  # resizes the image to 10x10
+                img = img.convert('L')  # convert image to black and white
+                # name = 'processedImages/' + str(counter) + '.jpeg'
+                # img = ImageOps.invert(img)
+                # img.save(name)
+
+                pix = np.array(img, np.float32)
+                pix = (pix - 128) / 128  # Scales the pixels to be between -1 and 1
+                pix = pix.flatten()  # flattens the image to a single array of lenght of 100
+
+                static_improved_z[indexCounter] = pix  # Adds the image to the z-array
+                indexCounter += 1
+                if(indexCounter == len(data)/2):
+                    print("Only halfway......")
 
 
         if (useEvalSet):
@@ -478,25 +511,27 @@ class DCGAN(object):
 
                 elif(useImproved_z_noise):
 
-                    basewidth = 10
-                    indexCounter = 0
-                    for imgName in batch_files:
-                        img = Image.open(imgName)
-                        # img = img.convert('L')  # convert image to greyscale
-                        wpercent = (basewidth / float(img.size[0]))
-                        hsize = int((float(img.size[1]) * float(wpercent)))
-                        img = img.resize((basewidth, basewidth), PIL.Image.ANTIALIAS)  # resizes the image to 10x10
-                        img = img.convert('L')  # convert image to black and white
-                        # name = 'processedImages/' + str(counter) + '.jpeg'
-                        # img = ImageOps.invert(img)
-                        # img.save(name)
+                    batch_z = static_improved_z[idx * config.batch_size:(idx + 1) * config.batch_size]
 
-                        pix = np.array(img, np.float32)
-                        pix = (pix - 128) / 128  # Scales the pixels to be between -1 and 1
-                        pix = pix.flatten()  # flattens the image to a single array of lenght of 100
-
-                        batch_z[indexCounter] = pix  # Adds the image to the z-array
-                        indexCounter += 1
+                    # basewidth = 10
+                    # indexCounter = 0
+                    # for imgName in batch_files:
+                    #     img = Image.open(imgName)
+                    #     # img = img.convert('L')  # convert image to greyscale
+                    #     wpercent = (basewidth / float(img.size[0]))
+                    #     hsize = int((float(img.size[1]) * float(wpercent)))
+                    #     img = img.resize((basewidth, basewidth), PIL.Image.ANTIALIAS)  # resizes the image to 10x10
+                    #     img = img.convert('L')  # convert image to black and white
+                    #     # name = 'processedImages/' + str(counter) + '.jpeg'
+                    #     # img = ImageOps.invert(img)
+                    #     # img.save(name)
+                    #
+                    #     pix = np.array(img, np.float32)
+                    #     pix = (pix - 128) / 128  # Scales the pixels to be between -1 and 1
+                    #     pix = pix.flatten()  # flattens the image to a single array of lenght of 100
+                    #
+                    #     batch_z[indexCounter] = pix  # Adds the image to the z-array
+                    #     indexCounter += 1
 
 
                 # else:
@@ -748,9 +783,11 @@ class DCGAN(object):
                         elif (useStaticZNoise):
                             sample_z = static_z[idx * config.batch_size:(idx + 1) * config.batch_size]
 
-                        elif (useImproved_z_noise):
-                            sample_z = batch_z
 
+                        elif (useImproved_z_noise):
+                            # sample_z = batch_z
+                            sample_z = static_improved_z[idx * config.batch_size:(idx + 1) * config.batch_size]
+                            print("Using improved noise for sample generation")
 
                         else:
                             sample_z = np.random.uniform(-1, 1, [64, self.z_dim]).astype(np.float32)
@@ -835,6 +872,13 @@ class DCGAN(object):
         # if (dataset != None):
         #     sampleSize = len(dataset)
 
+
+        if(improved_z_noise):
+            print("improved_z_noise is turned on!")
+            print("improved_z_noise is turned on!")
+            print("improved_z_noise is turned on!")
+            print("improved_z_noise is turned on!")
+
         # print("Generating", sampleSize * self.batch_size, "images for evaluation with GAM")
 
         selectedImages = np.zeros((sampleSize*self.batch_size, self.output_height, self.output_width, self.c_dim), dtype=np.float32) #tf.stack(newBatch)
@@ -883,8 +927,8 @@ class DCGAN(object):
                 # noe[0][i] = images[int(sortedIndeciesBatch[i])]
                 selectedImages[b*self.batch_size + i] = images[i]
 
-            if(b == sampleSize/2):
-                print(" - Halfway done")
+            # if(b == sampleSize/2):
+            #     print(" - Halfway done")
 
         # print("Sample generation done")
         # print("Size: ", len(selectedImages))
@@ -1523,6 +1567,14 @@ class DCGAN(object):
             print(" [*] Failed to find a checkpoint")
             return -1
 
+    def getNumberOfCheckpoints(self, checkpoint_dir):
+        checkpoint_dir_1 = os.path.join(checkpoint_dir, self.model_dir)
+        ckpt = tf.train.get_checkpoint_state(checkpoint_dir_1)
+        numberOfCheckpoints = ckpt.all_model_checkpoint_paths
+
+
+        return len(numberOfCheckpoints)
+
     def loadCloestsCheckpoint(self, checkpoint_dir,numberOfITerations):
 
 
@@ -1543,3 +1595,25 @@ class DCGAN(object):
 
         print("Mathcing checkpoint not found!")
         return False
+
+
+    def loadCloestsCheckpointNumber(self, checkpoint_dir,numberOfITerations, checkpointNumber):
+
+
+        checkpoint_dir = os.path.join(checkpoint_dir, self.model_dir)
+        ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
+
+        checkpoint = ckpt.all_model_checkpoint_paths[checkpointNumber]
+        #for checkpoint in ckpt.all_model_checkpoint_paths:
+        ckpt_name = os.path.basename(checkpoint)
+
+
+        iteratons = ckpt_name.split("-")[1]
+        if(int(iteratons) > numberOfITerations):
+            #print("Stopping here, reached end")
+            return True
+        else:
+
+            self.saver.restore(self.sess, os.path.join(checkpoint_dir, ckpt_name))
+            #print("Mathcing checkpoint not found!")
+            return False

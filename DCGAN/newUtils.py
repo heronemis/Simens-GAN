@@ -25,7 +25,7 @@ def initCSV(sampleDir):
     global commonName
     with open(sampleDir+"/accuracy - " + commonName + ".csv", "w") as csvfile:
         writer = csv.writer(csvfile, delimiter=';', quoting=csv.QUOTE_MINIMAL, dialect='excel-tab')
-        writer.writerow(["Epoch","Real classified as real(%)","Fake classified as fake(%)","Combined","Avg combined(last " + str(n) + ")","Max combined(last " + str(n) + ")"])
+        writer.writerow(["Epoch","Real_classified_as_real","Fake_classified_as_fake","Combined","Avg_combined_last_" + str(n) + ")","Max_combined_last_" + str(n) + ")"])
 
 
 def createConfingCSV(sampleDir,FLAGS):
@@ -38,6 +38,32 @@ def createConfingCSV(sampleDir,FLAGS):
             # print(c, "-",FLAGS.__flags[c])
             writer.writerow([c, FLAGS.__flags[c]])
 
+
+def createGAMCSV(resultsThroughout,gan1Name,gan2Name,listTestScoreGAN_1, listTestScoreGAN_2, listSampleScoreGAN_1, listSampleScoreGAN_2,ganWinner,sampleRatio,testratio,gan1Wins,gan2Wins,ties,testDataSize,samplesDataSize):
+
+    gamFolder = "gamResults/"
+    if not os.path.exists(gamFolder):
+        os.makedirs(gamFolder)
+        print("Folder not found. Creaintg it!")
+
+
+    fileName = gan1Name + "__vs__"+ gan2Name
+    fileName = fileName.replace("/","")
+
+    # if  os.path.exists(gamFolder + fileName + ".csv"):
+    #     fileName += 1
+
+    with open(gamFolder + fileName + ".csv", "w") as csvfile:
+        writer = csv.writer(csvfile, delimiter=';', quoting=csv.QUOTE_MINIMAL, dialect='excel-tab')
+        writer.writerow(["GAN_1", "GAN_2","Winner_all","testRatio_all","sampleRatio_all","ties","gan_1_wins","gan_2_wins",
+                         "epoch","winner","gan_1_testScore","gan_1_sampleScore","gan_2_testScore","gan_2_sampleScore","testDataSize","samplesDataSize"])
+        writer.writerow([gan1Name, gan2Name,ganWinner,testratio,sampleRatio,ties,gan1Wins,gan2Wins,
+                         0,resultsThroughout[0],listTestScoreGAN_1[0],listSampleScoreGAN_1[0],listTestScoreGAN_2[0],listSampleScoreGAN_2[0],testDataSize,samplesDataSize])
+
+        for i in range(1,len(listSampleScoreGAN_1)):
+            writer.writerow(["", "", "", "", "", "", "", "",
+                             i, resultsThroughout[i], listTestScoreGAN_1[i], listSampleScoreGAN_1[i], listTestScoreGAN_2[i],
+                             listSampleScoreGAN_2[i],"",""])
 
 def addStats(accuracy):
     global combinedAccuarcy
