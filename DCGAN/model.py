@@ -11,11 +11,10 @@ from ops import *
 from utils import *
 from newUtils import *
 
-
 import PIL
 from PIL import Image
 from PIL import ImageOps
-
+from random import randint
 
 def conv_out_size_same(size, stride):
     return int(math.ceil(float(size) / float(stride)))
@@ -26,7 +25,7 @@ class DCGAN(object):
                  batch_size=64, sample_num=64, output_height=64, output_width=64,
                  y_dim=None, z_dim=100, gf_dim=64, df_dim=64,
                  gfc_dim=1024, dfc_dim=1024, c_dim=3, dataset_name='default',
-                 input_fname_pattern='*.jpg', checkpoint_dir=None, sample_dir=None,evalSize=1):
+                 input_fname_pattern='*.jpg', checkpoint_dir=None, sample_dir=None, evalSize=1):
         """
 
         Args:
@@ -48,7 +47,7 @@ class DCGAN(object):
         self.sample_num = sample_num
 
         self.secondDicsriminator = False
-        if(self.secondDicsriminator):
+        if (self.secondDicsriminator):
             print("secondDicsriminator is True")
 
         self.input_height = input_height
@@ -66,7 +65,7 @@ class DCGAN(object):
         self.gfc_dim = gfc_dim
         self.dfc_dim = dfc_dim
 
-        self.evalSize = batch_size*evalSize
+        self.evalSize = batch_size * evalSize
 
         self.c_dim = c_dim
 
@@ -106,15 +105,11 @@ class DCGAN(object):
         else:
             image_dims = [self.input_height, self.input_height, self.c_dim]
 
-
-
         self.inputs = tf.placeholder(tf.float32, [self.batch_size] + image_dims, name='real_images')
 
         self.inputsArchiveFake = tf.placeholder(tf.float32, [self.batch_size] + image_dims, name='fake_fromArchive')
 
         self.inputsProc = tf.placeholder(tf.float32, [self.batch_size] + image_dims, name='inputsProc')
-
-
 
         self.sample_inputs = tf.placeholder(
             tf.float32, [self.sample_num] + image_dims, name='sample_inputs')
@@ -149,21 +144,16 @@ class DCGAN(object):
             self.D, self.D_logits = self.discriminator(inputs)
 
             if self.secondDicsriminator:
-                self.D2, self.D2_logits = self.discriminator(inputs,secondDiscriminator=True)
+                self.D2, self.D2_logits = self.discriminator(inputs, secondDiscriminator=True)
                 # self.D2, self.D2_logits = self.discriminator(inputsArchiveFake,secondDiscriminator=True)
 
             # self.GInit = self.generator(self.z, useBatching=False)
             self.G = self.generator(self.z)
 
-
-
-
             self.generatorOuput = self.generator(self.z, y=None, reuse=True, tempBatchSize=self.evalSize,
                                                  useBatching=False)
 
             self.discriminatorOutput = self.discriminator(inputs, reuse=True)
-
-
 
             # self.G = self.generator(self.z,reuse=True,useBatching=True)
             # self.generatorEval = self.generator(self.z, y=None, reuse=True, tempBatchSize=self.evalSize)
@@ -183,7 +173,8 @@ class DCGAN(object):
             self.D_, self.D_logits_ = self.discriminator(self.G, reuse=True)
 
             if self.secondDicsriminator:
-                self.D2_, self.D2_logits_ = self.discriminator(self.inputsArchiveFake, reuse=True,secondDiscriminator=True)
+                self.D2_, self.D2_logits_ = self.discriminator(self.inputsArchiveFake, reuse=True,
+                                                               secondDiscriminator=True)
                 # self.D2Archive, self.D2_logitsArchive = self.discriminator(self.G, reuse=True,secondDiscriminator=True)
             #
             # self.D_, self.D_logits_ = self.discriminator(inputsProc, reuse=True)
@@ -197,8 +188,6 @@ class DCGAN(object):
 
 
             # self.generatorEval = self.generator(self.z, y=None, reuse=True, tempBatchSize=self.evalSize, useBatching=True)
-
-
 
         self.d_sum = histogram_summary("d", self.D)
         self.d__sum = histogram_summary("d_", self.D_)
@@ -227,6 +216,15 @@ class DCGAN(object):
                 sigmoid_cross_entropy_with_logits(self.D2_logits, tf.ones_like(self.D2)))
             self.d2_loss_fake = tf.reduce_mean(
                 sigmoid_cross_entropy_with_logits(self.D2_logits_, tf.zeros_like(self.D2_)))
+
+            self.g_loss_normal = tf.reduce_mean(
+                sigmoid_cross_entropy_with_logits(self.D_logits_, tf.ones_like(self.D_)))
+
+
+            self.g_loss_historic = tf.reduce_mean(
+                sigmoid_cross_entropy_with_logits(self.D2_logits_, tf.ones_like(self.D2_)))
+
+            self.g_loss = self.g_loss_normal + self.g_loss_historic
             # self.g2_loss = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.D2_logitsArchive, tf.ones_like(self.D2_)))
 
         # self.d_loss_real = tf.reduce_mean(
@@ -239,8 +237,9 @@ class DCGAN(object):
         self.d_loss_real_sum = scalar_summary("d_loss_real", self.d_loss_real)
         self.d_loss_fake_sum = scalar_summary("d_loss_fake", self.d_loss_fake)
 
-
         self.d_loss = self.d_loss_real + self.d_loss_fake
+
+
 
         if self.secondDicsriminator:
             self.d2_loss_real_sum = scalar_summary("d2_loss_real", self.d2_loss_real)
@@ -251,6 +250,7 @@ class DCGAN(object):
         self.g_loss_sum = scalar_summary("g_loss", self.g_loss)
         self.d_loss_sum = scalar_summary("d_loss", self.d_loss)
         if self.secondDicsriminator:
+            #self.g2_loss_sum = scalar_summary("g2_loss", self.g2_loss)
             self.d2_loss_sum = scalar_summary("d2_loss", self.d2_loss)
 
         t_vars = tf.trainable_variables()
@@ -260,14 +260,12 @@ class DCGAN(object):
         if self.secondDicsriminator:
             self.d2_vars = [var for var in t_vars if 'd2_' in var.name]
 
-
-
         self.g_vars = [var for var in t_vars if 'g_' in var.name]
 
         self.saver = tf.train.Saver(max_to_keep=50)
 
     # def evalImages(self, lastAccuracy, evalDataset, config, realImages=True):
-    def evalImages(self, evalDataset, config, realImages=True,useErrorRate=True):
+    def evalImages(self, evalDataset, config, realImages=True, useErrorRate=True):
 
         batch_idxs = min(len(evalDataset), config.train_size) // config.batch_size
 
@@ -291,11 +289,11 @@ class DCGAN(object):
                         correct += 1
                         # print("     - correct!")
 
-        if (realImages):
-            percentageScale = ((float(correctScale) / float(len(evalDataset))))
-            # print("Error rate scale:",percentageScale,"%")
+        # if (realImages):
+        #     percentageScale = ((float(correctScale) / float(len(evalDataset))))
+        #     # print("Error rate scale:",percentageScale,"%")
 
-        if(useErrorRate):
+        if (useErrorRate):
             percentage = ((float(correct) / float(len(evalDataset))))
             return percentage
         else:
@@ -321,12 +319,12 @@ class DCGAN(object):
             # data_X, data_y = self.load_mnist()
             data_X, data_y, testing_x_all, testing_y_all = self.load_mnist_with_test()
         else:
-            if(config.dataset == "cat"):
+            if (config.dataset == "cat"):
                 data = glob(os.path.join("./data", "cat/*", "*.jpg"))
+            elif (config.dataset == "cifar"):
+                data = self.geCifar()
             else:
                 data = glob(os.path.join("./data", config.dataset, self.input_fname_pattern))
-
-
 
         ## SIMENS LILLE CONFING ##
         self.train_size = config.train_size
@@ -336,15 +334,24 @@ class DCGAN(object):
         tournament_selection_noise = config.tournament_selection > 0
         useImproved_z_noise = config.improved_z_noise
         useStaticZNoise = config.static_z
+        auditionNoiseGeneratorOnly = config.tournment_noise_g_only
 
         initCSV(config.sample_dir)
 
         configString = getAddons(config)
 
+        useSampleArchive = config.multiGanMode > 0
+
+        if(useSampleArchive):
+            usedIndecies = []
+            sampleArchive = np.zeros((self.batch_size*10, self.output_height, self.output_width, self.c_dim),
+                                  dtype=np.float32)
+
         ## SIMENS LILLE CONFING ##
 
 
-        if(useStaticZNoise):
+        if (useStaticZNoise):
+            np.random.seed(seed=1337)
             static_z = np.random.uniform(-1, 1, [len(data), self.z_dim]).astype(np.float32)
 
         elif (useImproved_z_noise):
@@ -354,7 +361,18 @@ class DCGAN(object):
             basewidth = 10
             indexCounter = 0
             for imgName in data:
-                img = Image.open(imgName)
+                if (config.dataset == "cifar"):
+                    #img = imgName
+                    # print(imgName[0][0])
+
+                    intData = (imgName +1) * 128.
+                    rawData = np.array(intData, np.uint8)
+                    # print(intData[0][0])
+                    #intData = imgName.reshape(256,256,3)
+                    img = Image.fromarray(rawData)
+
+                else:
+                    img = Image.open(imgName)
                 # img = img.convert('L')  # convert image to greyscale
                 wpercent = (basewidth / float(img.size[0]))
                 hsize = int((float(img.size[1]) * float(wpercent)))
@@ -370,26 +388,28 @@ class DCGAN(object):
 
                 static_improved_z[indexCounter] = pix  # Adds the image to the z-array
                 indexCounter += 1
-                if(indexCounter == len(data)/2):
+                if (indexCounter == len(data) / 2):
                     print("Only halfway......")
 
-
         if (useEvalSet):
-            eval_files = data[0:self.evalSize]
-            evalSamplesReal = [
-                get_image(sample_file,
-                          input_height=self.input_height,
-                          input_width=self.input_width,
-                          resize_height=self.output_height,
-                          resize_width=self.output_width,
-                          is_crop=self.is_crop,
-                          is_grayscale=self.is_grayscale) for sample_file in eval_files]
-            if (self.is_grayscale):
-                eval_real = np.array(evalSamplesReal).astype(np.float32)[:, :, :, None]
+            if (config.dataset == "cifar"):
+                eval_real = self.geCifar()[0:self.evalSize]
             else:
-                eval_real = np.array(evalSamplesReal).astype(np.float32)
+                eval_files = data[0:self.evalSize]
+                evalSamplesReal = [
+                    get_image(sample_file,
+                              input_height=self.input_height,
+                              input_width=self.input_width,
+                              resize_height=self.output_height,
+                              resize_width=self.output_width,
+                              is_crop=self.is_crop,
+                              is_grayscale=self.is_grayscale) for sample_file in eval_files]
+                if (self.is_grayscale):
+                    eval_real = np.array(evalSamplesReal).astype(np.float32)[:, :, :, None]
+                else:
+                    eval_real = np.array(evalSamplesReal).astype(np.float32)
 
-        if(config.shuffle_data):
+        if (config.shuffle_data):
             np.random.shuffle(data)
             print("Shuffling trainingdata")
 
@@ -401,6 +421,9 @@ class DCGAN(object):
         if self.secondDicsriminator:
             d2_optim = tf.train.AdamOptimizer(config.learning_rate_D, beta1=config.beta1_D) \
                 .minimize(self.d2_loss, var_list=self.d2_vars)
+
+            #g2_optim = tf.train.AdamOptimizer(config.learning_rate_G, beta1=config.beta1_G) \
+             #   .minimize(self.g2_loss, var_list=self.g_vars)
 
         try:
             tf.global_variables_initializer().run()
@@ -418,13 +441,16 @@ class DCGAN(object):
             self.d2_sum = merge_summary(
                 [self.d2_sum, self.d2_loss_real_sum, self.d2_loss_sum])
 
+
+            #self.g_sum2 = merge_summary([self.z_sum, self.d2__sum, self.G_sum, self.d2_loss_fake_sum, self.g_loss_sum])
+
         # self.GTest = self.generator(self.z, reuse=True, useBatching=True)
 
 
 
 
 
-        if(writeLogs):
+        if (writeLogs):
             self.writer = SummaryWriter("./logs", self.sess.graph)
 
         sample_z = np.random.uniform(-1, 1, size=(self.sample_num, self.z_dim))
@@ -441,7 +467,8 @@ class DCGAN(object):
             testing_x = testing_x_all[0:self.evalSize]
             testing_y = testing_y_all[0:self.evalSize]
 
-
+        elif (config.dataset == "cifar"):
+            sample_inputs = data[0:self.sample_num]
         else:
             sample_files = data[0:self.sample_num]
             sample = [
@@ -474,6 +501,8 @@ class DCGAN(object):
             else:
                 if (config.dataset == "cat"):
                     data = glob(os.path.join("./data", "cat/*", "*.jpg"))
+                elif (config.dataset == "cifar"):
+                    _ = 10
                 else:
                     data = glob(os.path.join("./data", config.dataset, self.input_fname_pattern))
                 batch_idxs = min(len(data), config.train_size) // config.batch_size
@@ -482,6 +511,12 @@ class DCGAN(object):
                 if config.dataset == 'mnist':
                     batch_images = data_X[idx * config.batch_size:(idx + 1) * config.batch_size]
                     batch_labels = data_y[idx * config.batch_size:(idx + 1) * config.batch_size]
+
+                elif (config.dataset == "cifar"):
+                    batch_images = data[idx * config.batch_size:(idx + 1) * config.batch_size]
+
+
+
                 else:
                     batch_files = data[idx * config.batch_size:(idx + 1) * config.batch_size]
                     batch = [
@@ -499,17 +534,14 @@ class DCGAN(object):
 
                 batch_z = np.random.uniform(-1, 1, [config.batch_size, self.z_dim]).astype(np.float32)
 
-                if( tournament_selection_noise):
-
-
-
+                if (tournament_selection_noise):
 
                     _, batch_z = self.batchGenerator(config.tournament_selection)
 
-                elif(useStaticZNoise):
+                elif (useStaticZNoise):
                     batch_z = static_z[idx * config.batch_size:(idx + 1) * config.batch_size]
 
-                elif(useImproved_z_noise):
+                elif (useImproved_z_noise):
 
                     batch_z = static_improved_z[idx * config.batch_size:(idx + 1) * config.batch_size]
 
@@ -532,7 +564,6 @@ class DCGAN(object):
                     #
                     #     batch_z[indexCounter] = pix  # Adds the image to the z-array
                     #     indexCounter += 1
-
 
                 # else:
                 #     batch_z = np.random.uniform(-1, 1, [config.batch_size, self.z_dim]).astype(np.float32)
@@ -561,7 +592,7 @@ class DCGAN(object):
 
                         # Run g_optim twice to make sure that d_loss does not go to zero (different from paper)
                         _, summary_str = self.sess.run([g_optim, self.g_sum],
-                                                     feed_dict={self.z: batch_z, self.y: batch_labels})
+                                                       feed_dict={self.z: batch_z, self.y: batch_labels})
 
                         if (writeLogs):
                             self.writer.add_summary(summary_str, counter)
@@ -584,34 +615,68 @@ class DCGAN(object):
                     # Update D network
                     # if (lastRealAccuracy > 70):
                     # _, summary_str = self.sess.run([d_optim, self.d_sum],feed_dict={self.inputs: batch_images, self.inputsProc: inputs})
-                    _, summary_str = self.sess.run([d_optim, self.d_sum],feed_dict={self.inputs: batch_images, self.z: batch_z})
+
+                    if (not auditionNoiseGeneratorOnly):
+                        _, summary_str = self.sess.run([d_optim, self.d_sum],
+                                                       feed_dict={self.inputs: batch_images, self.z: batch_z})
+                    else:
+                        print("Discirminator is getting random noise")
+                        random_batch_z = np.random.uniform(-1, 1, [config.batch_size, self.z_dim]).astype(np.float32)
+                        _, summary_str = self.sess.run([d_optim, self.d_sum],
+                                                       feed_dict={self.inputs: batch_images, self.z: random_batch_z})
 
                     if self.secondDicsriminator:
-                        _, summary_str = self.sess.run([d2_optim, self.d2_sum],feed_dict={self.inputs: batch_images, self.inputsArchiveFake: batch_images})
+                        if(useSampleArchive):
+                            np.random.shuffle(sampleArchive)
+                            batch_images_archive = sampleArchive[0 * config.batch_size:(0 + 1) * config.batch_size]
 
-
+                            _, summary_str = self.sess.run([d2_optim, self.d2_sum], feed_dict={self.inputs: batch_images,
+                                                                                               self.inputsArchiveFake: batch_images_archive})
 
                     if (writeLogs):
                         self.writer.add_summary(summary_str, counter)
 
-                    if(lastRealAccuracy > 70 or True):
+                    if (lastRealAccuracy > 70 or True):
                         # Update G network
-                        _, summary_str = self.sess.run([g_optim, self.g_sum],
-                                                       feed_dict={self.z: batch_z})
-                        if (writeLogs):
-                            self.writer.add_summary(summary_str, counter)
+                        # _, summary_str = self.sess.run([g_optim, self.g_sum], feed_dict={self.z: batch_z,self.inputsArchiveFake: batch_images_archive})
+                        # if (writeLogs):
+                        #     self.writer.add_summary(summary_str, counter)
 
-                        # Run g_optim twice to make sure that d_loss does not go to zero (different from paper)
-                        _, summary_str = self.sess.run([g_optim, self.g_sum],
-                                                       feed_dict={self.z: batch_z})
-                        if (writeLogs):
-                            self.writer.add_summary(summary_str, counter)
+                        if self.secondDicsriminator:
+                            if (useSampleArchive):
+                                _, summary_str = self.sess.run([g_optim, self.g_sum],
+                                                               feed_dict={self.z: batch_z,
+                                                                          self.inputsArchiveFake: batch_images_archive})
+
+
+                                _, summary_str = self.sess.run([g_optim, self.g_sum],
+                                                               feed_dict={self.z: batch_z,self.inputsArchiveFake: batch_images_archive})
+                        else:
+                            _, summary_str = self.sess.run([g_optim, self.g_sum],
+                                                           feed_dict={self.z: batch_z})
+                            if (writeLogs):
+                                self.writer.add_summary(summary_str, counter)
+
+
+                            # Run g_optim twice to make sure that d_loss does not go to zero (different from paper)
+                            _, summary_str = self.sess.run([g_optim, self.g_sum],
+                                                           feed_dict={self.z: batch_z})
+                            if (writeLogs):
+                                self.writer.add_summary(summary_str, counter)
                     else:
                         print("Not updating generator network")
 
-                    errD_fake = self.d_loss_fake.eval({self.z: batch_z})
-                    errD_real = self.d_loss_real.eval({self.inputs: batch_images})
-                    errG = self.g_loss.eval({self.z: batch_z})
+                    if self.secondDicsriminator:
+                        if (useSampleArchive):
+                            errD_fake = self.d_loss_fake.eval({self.z: batch_z,self.inputsArchiveFake: batch_images_archive})
+                            errD_real = self.d_loss_real.eval({self.inputs: batch_images})
+                            errG = self.g_loss.eval({self.z: batch_z,self.inputsArchiveFake: batch_images_archive})
+
+                    else:
+                        errD_fake = self.d_loss_fake.eval(
+                            {self.z: batch_z})
+                        errD_real = self.d_loss_real.eval({self.inputs: batch_images})
+                        errG = self.g_loss.eval({self.z: batch_z})
 
                 counter += 1
                 print("Epoch: [%2d] [%4d/%4d] time: %4.4f, d_loss: %.8f, g_loss: %.8f" \
@@ -623,9 +688,12 @@ class DCGAN(object):
 
                 # if idx <= 100 or True:
                 if np.mod(counter, 50) == 1:
+
+                    print("self.evalSize=",self.evalSize)
+
                     eval_z = np.random.uniform(-1, 1, [self.evalSize, self.z_dim]).astype(np.float32)
                     samples_eval = self.sess.run(
-                        [self.generatorEval ],
+                        [self.generatorEval],
                         feed_dict={
                             self.z: eval_z,
                         }
@@ -633,14 +701,41 @@ class DCGAN(object):
 
                     samples_eval = np.asarray(samples_eval[0])
 
-                    lastRealAccuracy = self.evalImages( eval_real, config, realImages=True,useErrorRate=False)
-                    lastFakeAccuracy = self.evalImages( samples_eval, config, realImages=False,useErrorRate=False)
+                    lastRealAccuracy = self.evalImages(eval_real, config, realImages=True, useErrorRate=False)
+                    lastFakeAccuracy = self.evalImages(samples_eval, config, realImages=False, useErrorRate=False)
 
                     iterationNumber = float(idx) / float(batch_idxs) + float(epoch)
 
-                    writeAccuracyToFile(config.sample_dir,[iterationNumber,lastRealAccuracy/100.0,lastFakeAccuracy/100.0, (lastRealAccuracy + lastFakeAccuracy)/200.00 ])
+                    writeAccuracyToFile(config.sample_dir,
+                                        [iterationNumber, lastRealAccuracy / 100.0, lastFakeAccuracy / 100.0,
+                                         (lastRealAccuracy + lastFakeAccuracy) / 200.00])
 
-                if np.mod(counter, 50) == 1 :
+                if np.mod(counter, 50) == 1 and useSampleArchive:
+
+                    archive_z = np.random.uniform(-1, 1, [64, self.z_dim]).astype(np.float32)
+
+                    samples, d_loss, g_loss = self.sess.run(
+                        [self.sampler, self.d_loss, self.g_loss],
+                        feed_dict={
+                            self.z: archive_z,
+                            self.inputs: sample_inputs, self.inputsArchiveFake: batch_images_archive
+                        },
+                    )
+                    imagesToReplace = randint(1, 16)
+                    for i in range(0, imagesToReplace):
+                        randomInxed = randint(0, len(sampleArchive)-1)
+
+                        if(randomInxed not in usedIndecies):
+                            usedIndecies.append(randomInxed)
+
+                        sampleArchive[randomInxed] = samples[i]
+                    print("Indecies used is", len(usedIndecies),"/",len(sampleArchive))
+                    if(len(usedIndecies) == len(sampleArchive)):
+                        usedIndecies = []
+
+
+
+                if np.mod(counter, 50) == 1:
 
                     # self.batchGenerator()
 
@@ -792,19 +887,33 @@ class DCGAN(object):
                         else:
                             sample_z = np.random.uniform(-1, 1, [64, self.z_dim]).astype(np.float32)
 
-
                         #
                         # eval_z = np.random.uniform(-1, 1, [64, self.z_dim]).astype(np.float32)
                         # samples, eval_z = self.batchGenerator()
 
-                        if(samples is None):
-                            samples, d_loss, g_loss = self.sess.run(
-                                [self.sampler, self.d_loss, self.g_loss],
-                                feed_dict={
-                                    self.z: sample_z,
-                                    self.inputs: sample_inputs,
-                                },
-                            )
+                        if (samples is None):
+                            if self.secondDicsriminator:
+                                if (useSampleArchive):
+                                    samples, d_loss, g_loss = self.sess.run(
+                                        [self.sampler, self.d_loss, self.g_loss],
+                                        feed_dict={
+                                            self.z: sample_z,
+                                            self.inputs: sample_inputs, self.inputsArchiveFake: batch_images_archive
+                                        },
+                                    )
+                            else:
+                                samples, d_loss, g_loss = self.sess.run(
+                                    [self.sampler, self.d_loss, self.g_loss],
+                                    feed_dict={
+                                        self.z: sample_z,
+                                        self.inputs: sample_inputs,
+                                    },
+                                )
+
+
+                        # for i in range(0, 64):
+                        #     randomInxed = randint(0,len(sampleArchive))
+                        #     sampleArchive[randomInxed] = samples[i]
 
                         # samples = self.sess.run(
                         #     [self.generatorEval],
@@ -827,16 +936,16 @@ class DCGAN(object):
                         # print("Done. Size[0][0]: ", len(samples[0][0][0]))
                         # print("Done. Size[0][0]: ", len(samples[0][0][0][0]))
 
+
+
+
                         # samples = np.asarray(samples[0])
                         for i in range(0, 32):
                             samples[i * 2] = batch_images[i * 2]
                             # samples[i*2] = batch_images[i]
 
-
                         batchOutput = self.sess.run([self.discriminatorOutput],
                                                     feed_dict={self.inputs: samples})
-
-
 
                         # evalDiscOuput = self.sess.run([self.discriminatorEval],
                         #                               feed_dict={self.eval_input: samples_eval, self.y_eval: testing_y})
@@ -851,53 +960,70 @@ class DCGAN(object):
                         #     },
                         # )
                         save_images(samples, [8, 8],
-                                    './{}/{}_{:02d}_{:04d}{}.png'.format(config.sample_dir,config.dataset, epoch, idx,configString), batchOutput[0][0]) #
+                                    './{}/{}_{:02d}_{:04d}{}.png'.format(config.sample_dir, config.dataset, epoch, idx,
+                                                                         configString), batchOutput[0][0])  #
                         # print("[Sample] d_loss: %.8f, g_loss: %.8f" % (d_loss, g_loss))
                         # except:
                         #     print("one pic error!...")
 
-                # if np.mod(counter, 2000) == 1 or np.mod(counter-1, 2000) == 1:
-                #     print("Saving checkpoint")
-                #     self.save(config.checkpoint_dir, counter)
+                        # if np.mod(counter, 2000) == 1 or np.mod(counter-1, 2000) == 1:
+                        #     print("Saving checkpoint")
+                        #     self.save(config.checkpoint_dir, counter)
             print("End of current Epoch, saving checkpoint")
             self.save(config.checkpoint_dir, counter)
 
-
-
-
-
-    def getGeneratorSamples(self,sampleSize,dataset=None,improved_z_noise=False):
+    def getGeneratorSamples(self, sampleSize, dataset=None, improved_z_noise=False, static_z=None, cifarDataset=False):
 
         # sampleSize = 200
         # if (dataset != None):
         #     sampleSize = len(dataset)
 
 
-        if(improved_z_noise):
+        if (improved_z_noise):
             print("improved_z_noise is turned on!")
             print("improved_z_noise is turned on!")
             print("improved_z_noise is turned on!")
             print("improved_z_noise is turned on!")
+
+        if (static_z != None):
+            print("static_z=static_z")
+            print("static_z=static_z")
+            print("static_z=static_z")
+            print("static_z=static_z")
+            print("static_z=static_z")
 
         # print("Generating", sampleSize * self.batch_size, "images for evaluation with GAM")
 
-        selectedImages = np.zeros((sampleSize*self.batch_size, self.output_height, self.output_width, self.c_dim), dtype=np.float32) #tf.stack(newBatch)
+        selectedImages = np.zeros((sampleSize * self.batch_size, self.output_height, self.output_width, self.c_dim),
+                                  dtype=np.float32)  # tf.stack(newBatch)
         # selectedNoise = np.zeros((self.batch_size, self.z_dim), dtype=np.float32) #tf.stack(newBatch)
 
         # if (dataset != None and improved_z_noise):
         #     print("Current GAN is using improved_z_noise")
 
-        for b in range(0,sampleSize):
-
+        for b in range(0, sampleSize):
 
             eval_z = np.random.uniform(-1, 1, [self.batch_size, self.z_dim]).astype(np.float32)
+
+            if (static_z != None):
+                eval_z = static_z[b * self.batch_size:(b + 1) * self.batch_size]
 
             if (dataset != None and improved_z_noise):
                 batch_files = dataset[b * self.batch_size:(b + 1) * self.batch_size]
                 basewidth = 10
                 indexCounter = 0
                 for imgName in batch_files:
-                    img = Image.open(imgName)
+                    if (cifarDataset):
+                        # img = imgName
+                        # print(imgName[0][0])
+
+                        intData = (imgName + 1) * 128.
+                        rawData = np.array(intData, np.uint8)
+                        # print(intData[0][0])
+                        # intData = imgName.reshape(256,256,3)
+                        img = Image.fromarray(rawData)
+                    else:
+                        img = Image.open(imgName)
                     # img = img.convert('L')  # convert image to greyscale
                     wpercent = (basewidth / float(img.size[0]))
                     hsize = int((float(img.size[1]) * float(wpercent)))
@@ -914,6 +1040,9 @@ class DCGAN(object):
                     eval_z[indexCounter] = pix  # Adds the image to the z-array
                     indexCounter += 1
 
+
+
+
             samples_eval = self.sess.run(
                 [self.generatorOuput],
                 feed_dict={
@@ -925,10 +1054,10 @@ class DCGAN(object):
 
             for i in range(0, len(samples_eval)):
                 # noe[0][i] = images[int(sortedIndeciesBatch[i])]
-                selectedImages[b*self.batch_size + i] = images[i]
+                selectedImages[b * self.batch_size + i] = images[i]
 
-            # if(b == sampleSize/2):
-            #     print(" - Halfway done")
+                # if(b == sampleSize/2):
+                #     print(" - Halfway done")
 
         # print("Sample generation done")
         # print("Size: ", len(selectedImages))
@@ -936,11 +1065,9 @@ class DCGAN(object):
         # print("Size[0][0]: ", len(selectedImages[0][0]))
         return selectedImages
 
+    def batchGenerator(self, tournament_selection):
 
-    def batchGenerator(self,tournament_selection):
-
-
-        if(tournament_selection == 1):
+        if (tournament_selection == 1):
             getBestImagesOnly = True
             mixed = False
         elif (tournament_selection == 2):
@@ -949,9 +1076,6 @@ class DCGAN(object):
         else:
             getBestImagesOnly = False
             mixed = True
-
-
-
 
         # eval_z = np.random.uniform(-1, 1, [64, self.z_dim]).astype(np.float32)
         # return self.generator(z, reuse=True)
@@ -975,6 +1099,7 @@ class DCGAN(object):
         indeices = list(range(0, self.evalSize))
 
         # eval_z = np.random.uniform(-1, 1, [64, self.z_dim]).astype(np.float32)
+        print("self.evalSize",self.evalSize)
         eval_z = np.random.uniform(-1, 1, [self.evalSize, self.z_dim]).astype(np.float32)
         # eval_z = np.zeros((self.evalSize, self.z_dim, self.output_width, self.c_dim), dtype=np.float32)
         #
@@ -1044,14 +1169,13 @@ class DCGAN(object):
 
         sortedIndecies = [x for (y, x) in sorted(zip(scores, indeices), key=lambda pair: pair[0])]
 
-        if(mixed):
+        if (mixed):
             print("Sampling both good and bad noise")
             splitIndexFirstBatch = int(float(self.batch_size) / float(3))
             sortedIndeciesBatchWorst = sortedIndecies[:splitIndexFirstBatch]
 
-
-
-            selectedImages = np.zeros((self.batch_size, self.output_height, self.output_width, self.c_dim), dtype=np.float32) #tf.stack(newBatch)
+            selectedImages = np.zeros((self.batch_size, self.output_height, self.output_width, self.c_dim),
+                                      dtype=np.float32)  # tf.stack(newBatch)
             # selectedNoise = np.zeros((self.batch_size, self.z_dim), dtype=np.float32) #tf.stack(newBatch)
             selectedNoise = np.random.uniform(-1, 1, [self.batch_size, self.z_dim]).astype(np.float32)
 
@@ -1063,11 +1187,10 @@ class DCGAN(object):
             sortedIndecies.reverse()
             sortedIndeciesBatchBest = sortedIndecies[:splitIndexFirstBatch]
 
-
             for i in range(0, splitIndexFirstBatch):
                 # noe[0][i] = images[int(sortedIndeciesBatch[i])]
-                selectedImages[i+splitIndexFirstBatch] = images[int(sortedIndeciesBatchBest[i])]
-                selectedNoise[i+splitIndexFirstBatch] = eval_z[int(sortedIndeciesBatchBest[i])]
+                selectedImages[i + splitIndexFirstBatch] = images[int(sortedIndeciesBatchBest[i])]
+                selectedNoise[i + splitIndexFirstBatch] = eval_z[int(sortedIndeciesBatchBest[i])]
 
             return selectedImages, selectedNoise
 
@@ -1077,24 +1200,19 @@ class DCGAN(object):
 
         sortedIndeciesBatch = sortedIndecies[:self.batch_size]
 
-
-        selectedImages = np.zeros((self.batch_size, self.output_height, self.output_width, self.c_dim), dtype=np.float32) #tf.stack(newBatch)
+        selectedImages = np.zeros((self.batch_size, self.output_height, self.output_width, self.c_dim),
+                                  dtype=np.float32)  # tf.stack(newBatch)
         # selectedNoise = np.zeros((self.batch_size, self.z_dim), dtype=np.float32) #tf.stack(newBatch)
         selectedNoise = np.random.uniform(-1, 1, [self.batch_size, self.z_dim]).astype(np.float32)
-
 
         for i in range(0, self.batch_size):
             # noe[0][i] = images[int(sortedIndeciesBatch[i])]
             selectedImages[i] = images[int(sortedIndeciesBatch[i])]
             selectedNoise[i] = eval_z[int(sortedIndeciesBatch[i])]
 
-
-
         return selectedImages, selectedNoise
 
-
-
-    def discriminator(self, image, y=None, reuse=False, tempBatchSize=None,secondDiscriminator=False):
+    def discriminator(self, image, y=None, reuse=False, tempBatchSize=None, secondDiscriminator=False):
         with tf.variable_scope("discriminator") as scope:
             if reuse:
                 scope.reuse_variables()
@@ -1138,7 +1256,7 @@ class DCGAN(object):
 
                 return tf.nn.sigmoid(h3), h3
 
-    def generator(self, z, y=None,reuse=False, tempBatchSize=None, useBatching=False):
+    def generator(self, z, y=None, reuse=False, tempBatchSize=None, useBatching=False):
         with tf.variable_scope("generator") as scope:
             if reuse:
                 scope.reuse_variables()
@@ -1152,7 +1270,6 @@ class DCGAN(object):
             # if(self.test):
             # print("askhd akdhakjs dkjahdjkahdkajshdksajdh kjashdjk adasd ")
             if not self.y_dim:
-
 
                 s_h, s_w = self.output_height, self.output_width
                 s_h2, s_w2 = conv_out_size_same(s_h, 2), conv_out_size_same(s_w, 2)
@@ -1192,7 +1309,7 @@ class DCGAN(object):
                 # Some tensor we want to print the value of
 
 
-                if(useBatching and False):
+                if (useBatching and False):
 
                     return self.batchGenerator(tf.nn.tanh(h4))
                     # # return self.generator(z,reuse=True)
@@ -1230,14 +1347,11 @@ class DCGAN(object):
                     #     return test
                 else:
 
-
-                # return np.ones((self.batch_size, self.output_height, self.output_width, self.c_dim), dtype=np.float32)
+                    # return np.ones((self.batch_size, self.output_height, self.output_width, self.c_dim), dtype=np.float32)
 
                     # return tf.stack(np.zeros((self.batch_size, self.output_height, self.output_width, self.c_dim), dtype=np.float32)) #tf.stack(newBatch)
                     return tf.nn.tanh(h4)
             else:
-
-
 
                 s_h, s_w = self.output_height, self.output_width
                 s_h2, s_h4 = int(s_h / 2), int(s_h / 4)
@@ -1471,12 +1585,32 @@ class DCGAN(object):
                         os.path.join(checkpoint_dir, model_name),
                         global_step=step)
 
+    def geCifar(self):
+        import pickle
+        nb_samples = 50000
+        X = np.zeros((nb_samples, 32, 32, 3), dtype=np.float32)
 
+        for i in range(1, 6):
+            fpath = os.path.join("data/cifar/" 'data_batch_%d' % i)
+            # fpath = "data_batch_1"
+            with open(fpath, 'rb') as f:
+                d = pickle.load(f, encoding='bytes')
+            data = d[b'data']
+            labels = d[b'labels']
 
-    def evalPastCheckpoints(self, checkpoint_dir,testSamples,generatedTestSamples,FLAGS,maxIterationNumber=None):
+            bilder = data.reshape(10000, 3, 32, 32).transpose(0, 2, 3, 1).astype(np.float32)
+
+            bilder = (bilder / 128.) - 1
+
+            # data = data.reshape(data.shape[0], 32, 32, 3)
+            X[(i - 1) * 10000:i * 10000, :, :, :] = bilder
+
+        return X
+
+    def evalPastCheckpoints(self, checkpoint_dir, testSamples, generatedTestSamples, FLAGS, maxIterationNumber=None):
         checkpoint_dir = os.path.join(checkpoint_dir, self.model_dir)
         ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
-        print("Found",len(ckpt.all_model_checkpoint_paths),"checkpoints")
+        print("Found", len(ckpt.all_model_checkpoint_paths), "checkpoints")
         averageScore = 0
         averageValidationScore = 0
 
@@ -1486,22 +1620,20 @@ class DCGAN(object):
             ckpt_name = os.path.basename(checkpoint)
             iteratons = ckpt_name.split("-")[1]
 
-
             # self.saver.restore(self.sess, os.path.join(checkpoint_dir, ckpt_name))
             # print(" [*] Success to read {}".format(ckpt_name))
-            if(maxIterationNumber != None):
+            if (maxIterationNumber != None):
 
-                if(int(iteratons) > maxIterationNumber):
+                if (int(iteratons) > maxIterationNumber):
                     print("This model is trained longer than the other. Aborting test here")
                     break
-
-
 
             self.saver.restore(self.sess, os.path.join(checkpoint_dir, ckpt_name))
             # print(" [*] Success to read {}".format(ckpt_name))
             score = self.evalImages(generatedTestSamples, FLAGS, False)
             validationScore = self.evalImages(testSamples, FLAGS, True)
-            print("Epoch",epochNumber,"[" + str(iteratons) + " iterations]"," sample score is", round((1-score)*100,2) ,"% - (ValidationScore",round((1-validationScore)*100,2) ,"%)")
+            print("Epoch", epochNumber, "[" + str(iteratons) + " iterations]", " sample score is",
+                  round((1 - score) * 100, 2), "% - (ValidationScore", round((1 - validationScore) * 100, 2), "%)")
             averageScore += score
             averageValidationScore += validationScore
             epochNumber += 1
@@ -1510,15 +1642,13 @@ class DCGAN(object):
         print(" ")
         averageScore = float(averageScore) / float(len(ckpt.all_model_checkpoint_paths))
         averageValidationScore = float(averageValidationScore) / float(len(ckpt.all_model_checkpoint_paths))
-        print("Average score: ",averageScore)
-        print("Average validation score: ",averageValidationScore)
+        print("Average score: ", averageScore)
+        print("Average validation score: ", averageValidationScore)
         return averageScore, averageValidationScore
 
     def load(self, checkpoint_dir):
         print(" [*] Reading checkpoints...")
         checkpoint_dir = os.path.join(checkpoint_dir, self.model_dir)
-
-
 
         ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
         # print("ckpt: ", ckpt)
@@ -1532,7 +1662,6 @@ class DCGAN(object):
         else:
             print(" [*] Failed to find a checkpoint")
             return False
-
 
     def loadSilent(self, checkpoint_dir):
         # print(" [*] Reading checkpoints...")
@@ -1549,7 +1678,6 @@ class DCGAN(object):
         else:
             print(" [*] Failed to find a checkpoint")
             return False
-
 
     def loadTrainingITerations(self, checkpoint_dir):
         # print(" [*] Reading checkpoints...")
@@ -1572,48 +1700,42 @@ class DCGAN(object):
         ckpt = tf.train.get_checkpoint_state(checkpoint_dir_1)
         numberOfCheckpoints = ckpt.all_model_checkpoint_paths
 
-
         return len(numberOfCheckpoints)
 
-    def loadCloestsCheckpoint(self, checkpoint_dir,numberOfITerations):
-
+    def loadCloestsCheckpoint(self, checkpoint_dir, numberOfITerations):
 
         checkpoint_dir = os.path.join(checkpoint_dir, self.model_dir)
         ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
 
-
         for checkpoint in ckpt.all_model_checkpoint_paths:
             ckpt_name = os.path.basename(checkpoint)
 
-            if(numberOfITerations != None):
+            if (numberOfITerations != None):
                 iteratons = ckpt_name.split("-")[1]
-                if(int(iteratons) == numberOfITerations):
-                    #print("Found checkpoint match")
+                if (int(iteratons) == numberOfITerations):
+                    # print("Found checkpoint match")
                     self.saver.restore(self.sess, os.path.join(checkpoint_dir, ckpt_name))
-                    #print(" [*] Success to read {}".format(ckpt_name))
+                    # print(" [*] Success to read {}".format(ckpt_name))
                     return True
 
         print("Mathcing checkpoint not found!")
         return False
 
-
-    def loadCloestsCheckpointNumber(self, checkpoint_dir,numberOfITerations, checkpointNumber):
-
+    def loadCloestsCheckpointNumber(self, checkpoint_dir, numberOfITerations, checkpointNumber):
 
         checkpoint_dir = os.path.join(checkpoint_dir, self.model_dir)
         ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
 
         checkpoint = ckpt.all_model_checkpoint_paths[checkpointNumber]
-        #for checkpoint in ckpt.all_model_checkpoint_paths:
+        # for checkpoint in ckpt.all_model_checkpoint_paths:
         ckpt_name = os.path.basename(checkpoint)
 
-
         iteratons = ckpt_name.split("-")[1]
-        if(int(iteratons) > numberOfITerations):
-            #print("Stopping here, reached end")
+        if (int(iteratons) > numberOfITerations):
+            # print("Stopping here, reached end")
             return True
         else:
 
             self.saver.restore(self.sess, os.path.join(checkpoint_dir, ckpt_name))
-            #print("Mathcing checkpoint not found!")
+            # print("Mathcing checkpoint not found!")
             return False

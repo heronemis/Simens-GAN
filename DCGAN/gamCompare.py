@@ -64,11 +64,50 @@ def convertDecimalToPerctage(errorrate):
     return str(per)+"%"
 
 
+def geCifar():
+    import pickle
+    nb_samples = 50000
+    X = np.zeros((nb_samples, 32, 32, 3), dtype=np.float32)
+
+    for i in range(1, 6):
+        fpath = os.path.join("data/cifar/" 'data_batch_%d' % i)
+        # fpath = "data_batch_1"
+        with open(fpath, 'rb') as f:
+            d = pickle.load(f, encoding='bytes')
+        data = d[b'data']
+        labels = d[b'labels']
+
+        bilder = data.reshape(10000, 3, 32, 32).transpose(0, 2, 3, 1).astype(np.float32)
+
+        bilder = (bilder / 128.) - 1
+
+        # data = data.reshape(data.shape[0], 32, 32, 3)
+        X[(i - 1) * 10000:i * 10000, :, :, :] = bilder
+
+    return X
+
 def main(_):
 
 
-    gan1Name = FLAGS.gan1.replace("checkpoint/", "")
-    gan2Name = FLAGS.gan2.replace("checkpoint/", "")
+    gan1Name = FLAGS.gan1.replace("checkpoint/", "").replace("/media/simen/PLEX/Simens-GAN/checkpoints_augmented_ikea/","").replace("/","")
+    gan2Name = FLAGS.gan2.replace("checkpoint/", "").replace("/media/simen/PLEX/Simens-GAN/checkpoints_augmented_ikea/","").replace("/","")
+
+
+
+    useTrainingNoiseIfStaticNoise = True
+    useTrainingNoiseIfImprovedNoise = False
+
+    if ("static_z" in str(gan2Name)):
+        if(useTrainingNoiseIfStaticNoise):
+            gan2Name += "witTrainingNoise"
+        else:
+            gan2Name += "randomNoise"
+
+    if ("improved_z_noise" in str(gan2Name)):
+        if(useTrainingNoiseIfImprovedNoise):
+            gan2Name += "witTrainingNoise"
+        else:
+            gan2Name += "randomNoise"
 
     if( len(gan1Name) > len(gan2Name)):
         print("Are the models in correct order????")
@@ -76,6 +115,12 @@ def main(_):
 
         print("Aborting to be safe")
         return
+
+    print(" ")
+    print("GAN 1 -", gan1Name)
+    print("GAN 2 -", gan2Name)
+    print(" ")
+
 
     gamFolder = "gamResults/"
     if not os.path.exists(gamFolder):
@@ -108,18 +153,21 @@ def main(_):
 
     print("Processing test data")
 
-    testDatasetSize = 100*FLAGS.batch_size
-    sampleDatasetSize = 100 #*FLAGS.batch_size
-    if (FLAGS.dataset == "cat"):
-        data = glob(os.path.join("./data", "cat/*", "*.jpg"))
+    testDatasetSize = 200*FLAGS.batch_size
+    sampleDatasetSize = 200 #*FLAGS.batch_size
+    if (FLAGS.dataset == "cifar"):
+        data = geCifar()
     else:
-        data = glob(os.path.join("./data", FLAGS.dataset, "*.jpeg"))
-    if(len(data) == 0):
-        print("Did not find any photos with extension .jpeg")
+        if (FLAGS.dataset == "cat"):
+            data = glob(os.path.join("./data", "cat/*", "*.jpg"))
+        else:
+            data = glob(os.path.join("./data", FLAGS.dataset, "*.jpeg"))
+        if(len(data) == 0):
+            print("Did not find any photos with extension .jpeg")
 
-        data = glob(os.path.join("./data", FLAGS.dataset, "*.jpg"))
-        print("Trying extension .jpg - Found",len(data),"images :)")
-        FLAGS.input_fname_pattern = "*.jpg"
+            data = glob(os.path.join("./data", FLAGS.dataset, "*.jpg"))
+            print("Trying extension .jpg - Found",len(data),"images :)")
+            FLAGS.input_fname_pattern = "*.jpg"
 
 
     np.random.shuffle(data)
@@ -129,14 +177,24 @@ def main(_):
     np.random.shuffle(data)
     sample_files = data[:int(len(data)) ]
 
-    testDataset = [
-        get_image(batch_file,
-                  input_height=FLAGS.input_height,
-                  input_width=FLAGS.input_width,
-                  resize_height=FLAGS.output_height,
-                  resize_width=FLAGS.output_width,
-                  is_crop=FLAGS.is_crop,
-                  is_grayscale=False) for batch_file in batch_files]
+    if (useTrainingNoiseIfStaticNoise):
+        np.random.seed(seed=1337)
+    #np.random.seed(seed=456456546)
+    static_z = np.random.uniform(-1, 1, [len(data), 100]).astype(np.float32)
+
+
+
+    if (FLAGS.dataset == "cifar"):
+        testDataset = data
+    else:
+        testDataset = [
+            get_image(batch_file,
+                      input_height=FLAGS.input_height,
+                      input_width=FLAGS.input_width,
+                      resize_height=FLAGS.output_height,
+                      resize_width=FLAGS.output_width,
+                      is_crop=FLAGS.is_crop,
+                      is_grayscale=False) for batch_file in batch_files]
 
 
     print("Loaded dataset",FLAGS.dataset,"Actaull size:",len(data),". Test size:",len(testDataset))
@@ -236,6 +294,10 @@ def main(_):
             print(" ")
             print("Epoch",n)
 
+            print("GAN 1 -", gan1Name, "trained for", dcgan.loadTrainingITerations(FLAGS.gan1), "iterations")
+            print("GAN 2 -", gan2Name, "trained for", dcgan.loadTrainingITerations(FLAGS.gan2), "iterations")
+
+
             #Gan 1
             dcgan.loadCloestsCheckpointNumber(FLAGS.gan1,minIterations,n)
 
@@ -277,10 +339,26 @@ def main(_):
             print("GAN 2 error rate on GAN 1's samples:", convertDecimalToPerctage(sampleScoreGAN_2) + "", )
 
             if("improved_z_noise" in str(gan2Name)):
+
+                cifarDataset = False
+
+                if (FLAGS.dataset == "cifar"):
+                    cifarDataset = True
+
                 print("improved_z_noise!!!")
-                samplesGAN_2 = dcgan.getGeneratorSamples(sampleDatasetSize,sample_files,improved_z_noise=True)
-                np.random.shuffle(data)
-                sample_files = data[:int(len(data))]
+                if(useTrainingNoiseIfImprovedNoise):
+                    samplesGAN_2 = dcgan.getGeneratorSamples(sampleDatasetSize,sample_files,improved_z_noise=True,cifarDataset=cifarDataset)
+                    np.random.shuffle(data)
+                    sample_files = data[:int(len(data))]
+                else:
+                    samplesGAN_2 = dcgan.getGeneratorSamples(sampleDatasetSize,cifarDataset=cifarDataset)
+
+            elif("static_z" in str(gan2Name)):
+                print("static_z!!!")
+                samplesGAN_2 = dcgan.getGeneratorSamples(sampleDatasetSize,static_z=static_z)
+                #np.random.shuffle(static_z)
+
+
             else:
                 samplesGAN_2 = dcgan.getGeneratorSamples(sampleDatasetSize)
 

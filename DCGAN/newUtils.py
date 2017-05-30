@@ -135,18 +135,30 @@ def getAddons(FLAGS):
     if(FLAGS.improved_z_noise):
         addons.append("improved_z_noise")
     if(FLAGS.static_z):
-        addons.append("static_z")
+        addons.append("static_z_seed1337")
     if(FLAGS.minibatch_discrimination):
         addons.append("minibatch_discrimination")
+
+
+    if(FLAGS.multiGanMode == 1):
+        addons.append("historicDiscrimantor")
+
     if(FLAGS.tournament_selection == 1):
-        addons.append("tournament_selection_best")
+        addons.append("audition_selection_best")
+
     elif(FLAGS.tournament_selection == 2):
-        addons.append("tournament_selection_worst")
+        addons.append("audition_selection_worst")
     elif(FLAGS.tournament_selection == 3):
-        addons.append("tournament_selection_mixed")
+        addons.append("audition_selection_mixed")
+    if(FLAGS.tournament_selection > 0):
+        asize = "_" + str(FLAGS.eval_size) + "bs"
+        addons.append(asize)
+    if(FLAGS.tournment_noise_g_only and FLAGS.tournament_selection > 0):
+        addons.append("_g_only")
+
 
     if (len(addons) > 0):
-        return "-" + str(addons).replace("'", "").replace(",", "+").replace("]", "").replace("[", "").replace(" ", "")+ "_" + str(FLAGS.eval_size)+"bs"
+        return "-" + str(addons).replace("'", "").replace(",", "+").replace("]", "").replace("[", "").replace(" ", "")
     else:
         return ""
 
