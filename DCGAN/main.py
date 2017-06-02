@@ -36,24 +36,29 @@ flags.DEFINE_boolean("is_train", False, "True for training, False for testing [F
 flags.DEFINE_boolean("is_crop", True, "True for training, False for testing [False]")
 flags.DEFINE_boolean("visualize", False, "True for visualizing, False for nothing [False]")
 
-flags.DEFINE_integer("eval_size", 3, "Selcted number times the batch size select the number of images used when samples are evaluated")
+flags.DEFINE_integer("eval_size", 1, "Selcted number times the batch size select the number of images used when samples are evaluated")
 
 
 flags.DEFINE_boolean("shuffle_data", False, "Shuffle training data before training [False]")
 flags.DEFINE_boolean("improved_z_noise", False, "Use Z noise based on training images [False]")
 flags.DEFINE_boolean("static_z", False, "Use the Z noise during each epoch of training[False]")
 flags.DEFINE_boolean("minibatch_discrimination", False, "Use of Minibatch Discrimination [False]")
-flags.DEFINE_integer("tournament_selection", 1, "0 is turned off. 1 will select the best images from a large selection while 2 will select the worst images. [0,1,2,3]")
+flags.DEFINE_integer("tournament_selection", 0, "0 is turned off. 1 will select the best images from a large selection while 2 will select the worst images. [0,1,2,3]")
 flags.DEFINE_boolean("tournment_noise_g_only", False, "Audition based noise selection is only used on noise to the generator")
 
 
-flags.DEFINE_integer("multiGanMode", 0, "0 is turned off. 1 will select the best images from a large selection while 2 will select the worst images. [0,1,2]")
+flags.DEFINE_integer("multiGanMode", 1, "0 is turned off. 1 will select the best images from a large selection while 2 will select the worst images. [0,1,2]")
+
+
 
 
 FLAGS = flags.FLAGS
 
 
 def main(_):
+
+
+
 
 
 
@@ -103,6 +108,20 @@ def main(_):
     run_config = tf.ConfigProto()
     run_config.gpu_options.allow_growth = True
 
+
+    if(FLAGS.multiGanMode > 0):
+        secondDicsriminator = True
+        print("secondDicsriminator is active!!")
+        print("secondDicsriminator is active!!")
+        print("secondDicsriminator is active!!")
+        print("secondDicsriminator is active!!")
+        print("secondDicsriminator is active!!")
+        print("secondDicsriminator is active!!")
+        print("secondDicsriminator is active!!")
+        print("secondDicsriminator is active!!")
+    else:
+        secondDicsriminator = False
+
     with tf.Session(config=run_config) as sess:
         if FLAGS.dataset == 'mnist':
             dcgan = DCGAN(
@@ -132,7 +151,7 @@ def main(_):
                 input_fname_pattern=FLAGS.input_fname_pattern,
                 is_crop=FLAGS.is_crop,
                 checkpoint_dir=FLAGS.checkpoint_dir,
-                sample_dir=FLAGS.sample_dir, evalSize=FLAGS.eval_size)
+                sample_dir=FLAGS.sample_dir, evalSize=FLAGS.eval_size,secondDicsriminator=secondDicsriminator)
 
         if FLAGS.is_train:
 

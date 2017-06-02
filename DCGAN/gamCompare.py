@@ -92,10 +92,10 @@ def main(_):
     gan1Name = FLAGS.gan1.replace("checkpoint/", "").replace("/media/simen/PLEX/Simens-GAN/checkpoints_augmented_ikea/","").replace("/","")
     gan2Name = FLAGS.gan2.replace("checkpoint/", "").replace("/media/simen/PLEX/Simens-GAN/checkpoints_augmented_ikea/","").replace("/","")
 
-
+    maxTrainingEpocs = -1
 
     useTrainingNoiseIfStaticNoise = True
-    useTrainingNoiseIfImprovedNoise = False
+    useTrainingNoiseIfImprovedNoise = True
 
     if ("static_z" in str(gan2Name)):
         if(useTrainingNoiseIfStaticNoise):
@@ -108,6 +108,19 @@ def main(_):
             gan2Name += "witTrainingNoise"
         else:
             gan2Name += "randomNoise"
+
+    #maxTrainingEpocs = -1
+    maxTrainingEpocs = -1
+    if(maxTrainingEpocs >0):
+        print("WARNING; Only testing on the first",maxTrainingEpocs," checkpoints!!")
+        print("WARNING; Only testing on the first",maxTrainingEpocs," checkpoints!!")
+        print("WARNING; Only testing on the first",maxTrainingEpocs," checkpoints!!")
+        print("WARNING; Only testing on the first",maxTrainingEpocs," checkpoints!!")
+        print("WARNING; Only testing on the first",maxTrainingEpocs," checkpoints!!")
+
+        #gan1Name += "_epoch_0_to" + maxTrainingEpocs + "_only"
+        gan2Name += "_epoch_0_to" + str(maxTrainingEpocs) + "_only"
+
 
     if( len(gan1Name) > len(gan2Name)):
         print("Are the models in correct order????")
@@ -256,7 +269,14 @@ def main(_):
 
 
         minIterations = min(dcgan.loadTrainingITerations(FLAGS.gan1), dcgan.loadTrainingITerations(FLAGS.gan2))
+
+
         minEpochs= min(dcgan.getNumberOfCheckpoints(FLAGS.gan1), dcgan.getNumberOfCheckpoints(FLAGS.gan2))
+
+
+        if(maxTrainingEpocs > 0):
+            minEpochs = maxTrainingEpocs
+
         print("The least trained model has",minEpochs,"checkpoints")
 
         print(" ")

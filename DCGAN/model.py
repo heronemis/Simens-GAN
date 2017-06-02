@@ -25,7 +25,7 @@ class DCGAN(object):
                  batch_size=64, sample_num=64, output_height=64, output_width=64,
                  y_dim=None, z_dim=100, gf_dim=64, df_dim=64,
                  gfc_dim=1024, dfc_dim=1024, c_dim=3, dataset_name='default',
-                 input_fname_pattern='*.jpg', checkpoint_dir=None, sample_dir=None, evalSize=1):
+                 input_fname_pattern='*.jpg', checkpoint_dir=None, sample_dir=None, evalSize=1,secondDicsriminator=False):
         """
 
         Args:
@@ -46,7 +46,7 @@ class DCGAN(object):
         self.batch_size = batch_size
         self.sample_num = sample_num
 
-        self.secondDicsriminator = False
+        self.secondDicsriminator = secondDicsriminator
         if (self.secondDicsriminator):
             print("secondDicsriminator is True")
 
@@ -344,8 +344,11 @@ class DCGAN(object):
 
         if(useSampleArchive):
             usedIndecies = []
-            sampleArchive = np.zeros((self.batch_size*10, self.output_height, self.output_width, self.c_dim),
+            sampleArchive = np.zeros((self.batch_size*1, self.output_height, self.output_width, self.c_dim),
                                   dtype=np.float32)
+
+            print("Using sampleArchive of size", len(sampleArchive))
+            print("Using sampleArchive of size", len(sampleArchive))
 
         ## SIMENS LILLE CONFING ##
 
@@ -710,18 +713,71 @@ class DCGAN(object):
                                         [iterationNumber, lastRealAccuracy / 100.0, lastFakeAccuracy / 100.0,
                                          (lastRealAccuracy + lastFakeAccuracy) / 200.00])
 
-                if np.mod(counter, 50) == 1 and useSampleArchive:
+                # if (len(usedIndecies) != len(sampleArchive) or (np.mod(counter, 5) == 1) )and useSampleArchive:
+                if useSampleArchive:
 
-                    archive_z = np.random.uniform(-1, 1, [64, self.z_dim]).astype(np.float32)
 
-                    samples, d_loss, g_loss = self.sess.run(
-                        [self.sampler, self.d_loss, self.g_loss],
-                        feed_dict={
-                            self.z: archive_z,
-                            self.inputs: sample_inputs, self.inputsArchiveFake: batch_images_archive
-                        },
-                    )
-                    imagesToReplace = randint(1, 16)
+
+
+                    index = 0
+                    while(len(usedIndecies) != len(sampleArchive)):
+                        archive_z = np.random.uniform(-1, 1, [64, self.z_dim]).astype(np.float32)
+
+                        samples, d_loss, g_loss = self.sess.run(
+                            [self.sampler, self.d_loss, self.g_loss],
+                            feed_dict={
+                                self.z: archive_z,
+                                self.inputs: sample_inputs, self.inputsArchiveFake: batch_images_archive
+                            },
+                        )
+
+                        for i in range(0, 64):
+                            randomInxed = randint(0, len(sampleArchive) - 1)
+
+                            if (index+i not in usedIndecies):
+                                usedIndecies.append(index+i)
+
+                            sampleArchive[index+i] = samples[i]
+                            # sampleArchive[randomInxed] = samples[i]
+
+
+
+                            if (len(usedIndecies) != len(sampleArchive)):
+                                #print("List not filled!")
+                                _ = 10
+                            else:
+                                print("list filled")
+                                break
+                        if (len(usedIndecies) != len(sampleArchive)):
+                            #print("List not filled!")
+                            _ = 10
+                        else:
+                            print("list filled")
+                            break
+                        index += 64
+
+
+
+                    # archive_z = np.random.uniform(-1, 1, [64, self.z_dim]).astype(np.float32)
+                    #
+                    # samples, d_loss, g_loss = self.sess.run(
+                    #     [self.sampler, self.d_loss, self.g_loss],
+                    #     feed_dict={
+                    #         self.z: archive_z,
+                    #         self.inputs: sample_inputs, self.inputsArchiveFake: batch_images_archive
+                    #     },
+                    # )
+
+
+                    samples = self.batchGenerator(1)[0]
+
+
+                    imagesToReplace = randint(16, 32) # historicDiscrimantor
+                    #imagesToReplace = randint(16, 32) # historicDiscrimantor
+                    print("Replaced",imagesToReplace,"images with best generated images")
+                    if(len(usedIndecies) != len(sampleArchive) ):
+                        print("List not filled!")
+                        imagesToReplace = 64
                     for i in range(0, imagesToReplace):
                         randomInxed = randint(0, len(sampleArchive)-1)
 
@@ -730,8 +786,8 @@ class DCGAN(object):
 
                         sampleArchive[randomInxed] = samples[i]
                     print("Indecies used is", len(usedIndecies),"/",len(sampleArchive))
-                    if(len(usedIndecies) == len(sampleArchive)):
-                        usedIndecies = []
+                    # if(len(usedIndecies) == len(sampleArchive)):
+                    #     usedIndecies = []
 
 
 
