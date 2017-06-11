@@ -13,7 +13,7 @@ import newUtils
 import tensorflow as tf
 
 flags = tf.app.flags
-flags.DEFINE_integer("epoch", 50, "Epoch to train [25]")
+flags.DEFINE_integer("epoch", 25, "Epoch to train [25]")
 flags.DEFINE_float("learning_rate_D", 0.0002, "Learning rate of Discriminator for adam [0.0002]") #00006
 flags.DEFINE_float("learning_rate_G", 0.0002, "Learning rate of Generator for adam [0.0002]")
 flags.DEFINE_float("beta1_D", 0.5, "Momentum term of Discriminator for adam [0.5]")
@@ -162,7 +162,7 @@ def main(_):
             if not dcgan.load(FLAGS.checkpoint_dir):
                 raise Exception("[!] Train a model first, then run test mode")
 
-
+            dcgan.train(FLAGS)
                 # to_json("./web/js/layers.js", [dcgan.h0_w, dcgan.h0_b, dcgan.g_bn0],
                 #                 [dcgan.h1_w, dcgan.h1_b, dcgan.g_bn1],
                 #                 [dcgan.h2_w, dcgan.h2_b, dcgan.g_bn2],

@@ -791,7 +791,7 @@ class DCGAN(object):
 
 
 
-                if np.mod(counter, 50) == 1:
+                if np.mod(counter, 1) == 0:
 
                     # self.batchGenerator()
 
@@ -996,9 +996,9 @@ class DCGAN(object):
 
 
                         # samples = np.asarray(samples[0])
-                        for i in range(0, 32):
-                            samples[i * 2] = batch_images[i * 2]
-                            # samples[i*2] = batch_images[i]
+                        # for i in range(0, 32):
+                        #     samples[i * 2] = batch_images[i * 2]
+                        #     # samples[i*2] = batch_images[i]
 
                         batchOutput = self.sess.run([self.discriminatorOutput],
                                                     feed_dict={self.inputs: samples})
@@ -1016,9 +1016,10 @@ class DCGAN(object):
                         #     },
                         # )
                         save_images(samples, [8, 8],
-                                    './{}/{}_{:02d}_{:04d}{}.png'.format(config.sample_dir, config.dataset, epoch, idx,
+                                    './{}/{}_{:02d}_{:04d}{}_forReport.png'.format(config.sample_dir, config.dataset, epoch, idx,
                                                                          configString), batchOutput[0][0])  #
                         # print("[Sample] d_loss: %.8f, g_loss: %.8f" % (d_loss, g_loss))
+                        return
                         # except:
                         #     print("one pic error!...")
 

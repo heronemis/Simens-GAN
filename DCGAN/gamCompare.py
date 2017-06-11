@@ -89,8 +89,10 @@ def geCifar():
 def main(_):
 
 
-    gan1Name = FLAGS.gan1.replace("checkpoint/", "").replace("/media/simen/PLEX/Simens-GAN/checkpoints_augmented_ikea/","").replace("/","")
-    gan2Name = FLAGS.gan2.replace("checkpoint/", "").replace("/media/simen/PLEX/Simens-GAN/checkpoints_augmented_ikea/","").replace("/","")
+    gan1Name = FLAGS.gan1.replace("checkpoint/", "").replace("/media/simen/PLEX/Simens-GAN/checkpoints_augmented_ikea/","")
+    gan1Name = gan1Name.replace("/","").replace("mediasimenPLEXSimens-GANcheckpoints","").replace("mediasimenPLEXSimens-GANcheckpoints_02.06","").replace("_02.06","")
+    gan2Name = FLAGS.gan2.replace("checkpoint/", "").replace("/media/simen/PLEX/Simens-GAN/checkpoints_augmented_ikea/","")
+    gan2Name = gan2Name.replace("/","").replace("mediasimenPLEXSimens-GANcheckpoints","").replace("mediasimenPLEXSimens-GANcheckpoints_02.06","").replace("_02.06","")
 
     maxTrainingEpocs = -1
 
@@ -124,10 +126,13 @@ def main(_):
 
     if( len(gan1Name) > len(gan2Name)):
         print("Are the models in correct order????")
+        print("Are the models in correct order????")
+        print("Are the models in correct order????")
+        print("Are the models in correct order????")
         print("The shorter on is GAN2 but should probalby be GAN1? amarigt?")
 
-        print("Aborting to be safe")
-        return
+        # print("Aborting to be safe")
+        # return
 
     print(" ")
     print("GAN 1 -", gan1Name)
@@ -348,7 +353,8 @@ def main(_):
                 testScoreGAN_2 = 0.00000001
             if(testScoreGAN_1 == 0):
                 testScoreGAN_1 = 0.00000001
-            testratio = float(testScoreGAN_1) / float(testScoreGAN_2)
+            #testratio = float(testScoreGAN_1) / float(testScoreGAN_2)
+            testratio = float(min(testScoreGAN_1,testScoreGAN_2)) / float(max(testScoreGAN_1,testScoreGAN_2))
             print("Test ratio =",testratio)
 
 
@@ -466,7 +472,8 @@ def main(_):
             testScoreGAN_2 = 0.00000001
         if (testScoreGAN_1 == 0):
             testScoreGAN_1 = 0.00000001
-        testratio = float(averageTestScoreGAN_1) / float(averageTestScoreGAN_2)
+        #testratio = float(averageTestScoreGAN_1) / float(averageTestScoreGAN_2)
+        testratio = float(min(testScoreGAN_1, testScoreGAN_2)) / float(max(testScoreGAN_1, testScoreGAN_2))
         print(" ")
         print("testRatio = GAN1", float(averageTestScoreGAN_1), " / GAN2", float(averageTestScoreGAN_2), " = ", testratio)
 

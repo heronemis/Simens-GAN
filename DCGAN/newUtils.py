@@ -158,7 +158,7 @@ def getAddons(FLAGS):
 
 
     if (len(addons) > 0):
-        return "-" + str(addons).replace("'", "").replace(",", "+").replace("]", "").replace("[", "").replace(" ", "")
+        return "-" + str(addons).replace("'", "").replace(",", "_").replace("]", "").replace("[", "").replace(" ", "")
     else:
         return ""
 
